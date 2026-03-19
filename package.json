@@ -1,0 +1,47 @@
+{
+  "name": "topmeme",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "web": "expo start --web",
+    "build": "expo export --output-dir dist",
+    "deploy": "npm run build && npx firebase deploy",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@react-navigation/native": "^7.1.33",
+    "@react-navigation/stack": "^7.8.5",
+    "axios": "^1.13.6",
+    "expo": "^55.0.6",
+    "expo-image-picker": "^55.0.12",
+    "firebase": "^12.10.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.83.2",
+    "react-native-gesture-handler": "^2.30.0",
+    "react-native-google-mobile-ads": "^16.3.0",
+    "react-native-reanimated": "4.2.1",
+    "react-native-safe-area-context": "~5.6.2",
+    "react-native-screens": "~4.23.0",
+    "react-native-vector-icons": "^10.3.0",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/preset-env": "^7.29.0",
+    "@babel/preset-react": "^7.28.5",
+    "babel-loader": "^10.1.1",
+    "css-loader": "^7.1.4",
+    "html-webpack-plugin": "^5.6.6",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.105.4",
+    "webpack-cli": "^4.10.0",
+    "webpack-dev-server": "^4.15.2"
+  }
+}

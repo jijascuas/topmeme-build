@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Topmeme Local</title>
+</head>
+<body>
+    <h1>Topmeme</h1>
+    <p>Haz clic en el botón para abrir la aplicación en modo local usando el navegador Brave.</p>
+    <button onclick="launchBrave()">Abrir en Brave</button>
+
+    <script>
+        function launchBrave() {
+            // Nota: El comando para abrir Brave puede variar según la ruta de instalación.
+            // En Windows, usualmente se encuentra en 'C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe'
+            // Dado que no puedo ejecutar comandos directamente desde un archivo HTML, 
+            // este botón abrirá la URL en el navegador predeterminado del sistema.
+            // Para asegurar que se abra en Brave, el usuario debe tener Brave como navegador predeterminado.
+            window.open('http://localhost:8081', '_blank');
+        }
+    </script>
+</body>
+</html>
