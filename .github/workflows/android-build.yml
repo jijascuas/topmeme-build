@@ -1,9 +1,9 @@
-name: Build Android APK
+name: Build Android APK & AAB
 
 on:
   push:
-    branches: [ "main", "master" ]
-  workflow_dispatch: # Permite lanzar la build manualmente desde la pestaña Actions
+    branches: [ "main" ]
+  workflow_dispatch: 
 
 jobs:
   build:
@@ -30,13 +30,25 @@ jobs:
       - name: 🏗️ Expo Prebuild (Generate Android Folder)
         run: npx expo prebuild --platform android --no-install
 
-      - name: ⚙️ Build APK (Debug)
+      - name: 🔑 Generate Release Keystore
+        run: |
+          keytool -genkey -v -keystore topmeme.keystore -alias topmeme-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass topmeme123 -keypass topmeme123 -dname "CN=Topmeme, OU=Build, O=Jijascuas, L=Unknown, S=Unknown, C=ES"
+
+      - name: ⚙️ Build APK & AAB (Release)
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace
+          # Compilar sin firmar inicialmente (unsigned)
+          ./gradlew assembleRelease bundleRelease --stacktrace
 
-      - name: 📤 Upload APK Artifact
+      - name: 📂 Organize Files
+        run: |
+          mkdir -p build-output
+          cp android/app/build/outputs/apk/release/app-release-unsigned.apk build-output/topmeme-release-unsigned.apk || cp android/app/build/outputs/apk/release/*.apk build-output/
+          cp android/app/build/outputs/bundle/release/app-release.aab build-output/topmeme-release.aab || cp android/app/build/outputs/bundle/release/*.aab build-output/
+          cp topmeme.keystore build-output/
+
+      - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Topmeme-Debug-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: Topmeme-Android-Build
+          path: build-output/
