@@ -855,7 +855,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
   if (loading) return (
     <View style={[styles.content, { justifyContent: 'center', alignItems: 'center' }, isLight && { backgroundColor: '#f5f5f5' }]}>
       <ActivityIndicator color="#3897f0" size="large" />
-      <Text style={{ color: isLight ? '#888' : '#aaa', marginTop: 12 }}>Loading memes...</Text>
+      <Text style={{ color: isLight ? '#888' : '#aaa', marginTop: 12 }}>⌛ Cargando memes...</Text>
     </View>
   );
 
@@ -968,7 +968,7 @@ export default function App() {
   if (authLoading) return (
     <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
       <ActivityIndicator color="#3897f0" size="large" />
-      <Text style={{ color: '#aaa', marginTop: 12 }}>Loading Topmeme...</Text>
+      <Text style={{ color: '#aaa', marginTop: 12 }}>🚀 Conectando con Topmeme (Firebase)...</Text>
     </View>
   );
 
