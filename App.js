@@ -291,7 +291,9 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
 
   return (
     <View style={styles.sidebar}>
-      <Text style={styles.sidebarTitle}>Topmeme</Text>
+      <View style={{ alignItems: 'center', marginTop: 15, marginBottom: 15 }}>
+        <Image source={require('./assets/icon.png')} style={{ width: 110, height: 110 }} resizeMode="contain" />
+      </View>
       <Text style={styles.sidebarUser} numberOfLines={1}>
         {user?.email ? `👤 ${user.email}` : '👤 Guest'}
       </Text>
