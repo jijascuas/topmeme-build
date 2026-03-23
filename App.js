@@ -230,12 +230,7 @@ const AuthScreen = ({ onClose }) => {
     setLoading(false);
   };
 
-  const handleAnonymous = async () => {
-    setLoading(true);
-    try { await signInAnonymously(auth); }
-    catch (e) { safeAlert('Error', e.message); }
-    setLoading(false);
-  };
+  
 
   return (
     <View style={styles.authContainer}>
@@ -274,9 +269,7 @@ const AuthScreen = ({ onClose }) => {
             <Text style={styles.googleBtnText}>🇬 &nbsp;Continue with Google</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.anonBtn, { marginTop: 10 }]} onPress={handleAnonymous}>
-            <Text style={styles.anonBtnText}>👻 Continue as guest</Text>
-          </TouchableOpacity>
+          
         </>
       )}
     </View>
