@@ -1016,7 +1016,7 @@ const styles = StyleSheet.create({
   menuItem:       { paddingVertical: 13, paddingHorizontal: 10, borderRadius: 10, marginBottom: 4 },
   activeMenuItem: { backgroundColor: '#1e1e1e' },
   promoMenuBtn:   { marginTop: 12, backgroundColor: '#141400', borderWidth: 1, borderColor: '#554400' },
-  donationMenuBtn:{ marginTop: 8, backgroundColor: '#2a1416', borderWidth: 1, borderColor: '#6a343a' },
+  donationMenuBtn: { marginTop: 8, backgroundColor: '#1b3a20', borderWidth: 1, borderColor: '#4CAF50' },
   menuText:       { fontSize: 15, color: '#777', fontWeight: '500' },
   activeMenuText: { color: '#fff' },
   spacer:         { flex: 1 },
@@ -1052,7 +1052,7 @@ const styles = StyleSheet.create({
   detailTitle:     { color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 },
   detailAuthor:    { color: '#666', fontSize: 13, marginBottom: 12 },
   detailLikeBtn:   { backgroundColor: '#1a1a1a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: '#333' },
-  detailLikeText:  { color: '#ff4d6d', fontSize: 16, fontWeight: '700' },
+  detailLikeText:  { color: '#81C784', fontSize: 16, fontWeight: '700' },
 
   // Upload Modal
   modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
 
   // Error panel
   errorPanel:      { backgroundColor: '#1a0509', borderWidth: 1, borderColor: '#5a1020', borderRadius: 12, padding: 14, marginTop: 14 },
-  errorPanelTitle: { color: '#ff4d6d', fontWeight: 'bold', fontSize: 15, marginBottom: 8 },
+  errorPanelTitle: { color: '#81C784', fontWeight: 'bold', fontSize: 15, marginBottom: 8 },
   errorPanelLabel: { color: '#aa3344', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', marginTop: 6, marginBottom: 2 },
   errorPanelText:  { color: '#dda0aa', fontSize: 13 },
   errorPanelRaw:   { color: '#664455', fontSize: 10, marginTop: 8, fontStyle: 'italic' },

@@ -10,11 +10,17 @@
     "version": "1.0.0",
     "sdkVersion": "55.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "systemFonts": [],
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
-      "package": "com.jijascuas.topmeme"
+      "package": "com.jijascuas.topmeme",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
     },
     "plugins": [
       [
