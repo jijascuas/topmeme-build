@@ -21,7 +21,7 @@ jobs:
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # Updated to 22
           cache: 'npm'
 
       - name: 🛠️ Install dependencies
@@ -34,21 +34,27 @@ jobs:
         run: |
           keytool -genkey -v -keystore topmeme.keystore -alias topmeme-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass topmeme123 -keypass topmeme123 -dname "CN=Topmeme, OU=Build, O=Jijascuas, L=Unknown, S=Unknown, C=ES"
 
-      - name: ⚙️ Build APK & AAB (Release)
+      - name: ⚙️ Build Android APK & AAB
         run: |
           cd android
-          # Compilar sin firmar inicialmente (unsigned)
-          ./gradlew assembleRelease bundleRelease --stacktrace
+          chmod +x gradlew
+          # Build APK (Debug) for quick testing
+          ./gradlew assembleDebug
+          # Build App Bundle (Release)
+          ./gradlew bundleRelease --stacktrace
 
-      - name: 📂 Organize Files
+      - name: 📂 Organize Artifacts
         run: |
           mkdir -p build-output
-          cp android/app/build/outputs/apk/release/app-release-unsigned.apk build-output/topmeme-release-unsigned.apk || cp android/app/build/outputs/apk/release/*.apk build-output/
-          cp android/app/build/outputs/bundle/release/app-release.aab build-output/topmeme-release.aab || cp android/app/build/outputs/bundle/release/*.aab build-output/
+          # Copy APK
+          find android/app/build/outputs/apk -name "*.apk" -exec cp {} build-output/topmeme-app.apk \;
+          # Copy AAB
+          find android/app/build/outputs/bundle -name "*.aab" -exec cp {} build-output/topmeme-release.aab \;
+          # Copy Keystore
           cp topmeme.keystore build-output/
 
       - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Topmeme-Android-Build
+          name: Topmeme-Android-Artifacts
           path: build-output/
