@@ -230,12 +230,6 @@ const AuthScreen = ({ onClose }) => {
     setLoading(false);
   };
 
-  const handleAnonymous = async () => {
-    setLoading(true);
-    try { await signInAnonymously(auth); }
-    catch (e) { safeAlert('Error', e.message); }
-    setLoading(false);
-  };
 
   return (
     <View style={styles.authContainer}>
@@ -244,7 +238,7 @@ const AuthScreen = ({ onClose }) => {
           <Text style={{ color: '#aaa', fontSize: 24, fontWeight: 'bold' }}>✕</Text>
         </TouchableOpacity>
       )}
-      <Text style={styles.authLogo}>🔥 Topmeme</Text>
+      <Image source={require('./assets/icon.png')} style={{ width: 180, height: 180, marginBottom: 20 }} resizeMode="contain" />
       <Text style={styles.authSubtitle}>{isRegister ? 'Create an account' : 'Log in'}</Text>
 
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#666"
@@ -264,18 +258,8 @@ const AuthScreen = ({ onClose }) => {
             </Text>
           </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity style={styles.googleBtn} onPress={handleGoogle}>
+          <TouchableOpacity style={[styles.googleBtn, { marginTop: 24 }]} onPress={handleGoogle}>
             <Text style={styles.googleBtnText}>G &nbsp;Continue with Google</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.anonBtn, { marginTop: 10 }]} onPress={handleAnonymous}>
-            <Text style={styles.anonBtnText}>👤 Continue as guest</Text>
           </TouchableOpacity>
         </>
       )}
