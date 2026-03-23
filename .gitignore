@@ -76,5 +76,5 @@ android/
 ios/
 
 # Sensitive files
-serviceAccountKey.json.json
+serviceAccountKey.json*
 codigos_regalo.txt
