@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: 📦 Checkout Repo
         uses: actions/checkout@v4
@@ -17,22 +18,25 @@ jobs:
         with:
           java-version: '17'
           distribution: 'zulu'
+          cache: 'gradle'
 
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
 
       - name: 🛠️ Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: 🏗️ Expo Prebuild (Generate Android Folder)
         run: npx expo prebuild --platform android --no-install
 
       - name: 🔑 Generate Release Keystore
         run: |
-          keytool -genkey -v -keystore topmeme.keystore -alias topmeme-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass topmeme123 -keypass topmeme123 -dname "CN=Topmeme, OU=Build, O=Jijascuas, L=Unknown, S=Unknown, C=ES"
+          if [ ! -f topmeme.keystore ]; then
+            keytool -genkey -v -keystore topmeme.keystore -alias topmeme-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass topmeme123 -keypass topmeme123 -dname "CN=Topmeme, OU=Build, O=Jijascuas, L=Unknown, S=Unknown, C=ES" -noprompt
+          fi
 
       - name: ⚙️ Build Android APK & AAB (Release Signed)
         run: |
@@ -43,29 +47,19 @@ jobs:
             -Pandroid.injected.signing.store.password=topmeme123 \
             -Pandroid.injected.signing.key.alias=topmeme-alias \
             -Pandroid.injected.signing.key.password=topmeme123 \
-            --stacktrace
+            --no-daemon --stacktrace
 
       - name: 📂 Organize Artifacts
         run: |
           mkdir -p build-output
-          cp android/app/build/outputs/apk/release/*.apk build-output/topmeme-release.apk || true
-          cp android/app/build/outputs/bundle/release/*.aab build-output/topmeme-release.aab || true
+          APK_PATH=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -n "$APK_PATH" ]; then cp "$APK_PATH" build-output/topmeme-release.apk; fi
+          AAB_PATH=$(find android/app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          if [ -n "$AAB_PATH" ]; then cp "$AAB_PATH" build-output/topmeme-release.aab; fi
           cp topmeme.keystore build-output/
 
-      - name: 📤 Upload APK
+      - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Topmeme-Release-APK
-          path: build-output/topmeme-release.apk
-
-      - name: 📤 Upload AAB (Google Play)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Topmeme-Release-AAB
-          path: build-output/topmeme-release.aab
-
-      - name: 📤 Upload Keystore
-        uses: actions/upload-artifact@v4
-        with:
-          name: Topmeme-Build-Keystore
-          path: build-output/topmeme.keystore
+          name: Topmeme-Android-Builds
+          path: build-output/
