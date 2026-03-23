@@ -309,7 +309,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
     <View style={styles.sidebar}>
       <Text style={styles.sidebarTitle}>Topmeme</Text>
       <Text style={styles.sidebarUser} numberOfLines={1}>
-        {user?.email ? `­ƒæñ ${user.email}` : '­ƒæ╗ Guest'}
+        {user?.email ? `👤 ${user.email}` : '👤 Guest'}
       </Text>
 
       {categories.map(cat => (
@@ -336,8 +336,8 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
         onPress={() => Linking.openURL('https://ko-fi.com/jijascuas')}
         style={[styles.menuItem, styles.donationMenuBtn]}
       >
-        <Text style={[styles.menuText, { color: '#ff5e5b', fontWeight: 'bold' }]}>
-          ❤️ Support / Donate
+        <Text style={[styles.menuText, { color: '#4caf50', fontWeight: 'bold' }]}>
+          ☕ Support / Donate
         </Text>
       </TouchableOpacity>
 
@@ -547,7 +547,7 @@ const UploadModal = ({ visible, onClose, user, category }) => {
 
           {/* Cabecera — el botón ✕ SIEMPRE funciona */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <Text style={styles.uploadModalTitle}>{category === 'PROMOCION' ? '🌟 Subir a PROMOCIÓN' : 'Subir meme'}</Text>
+            <Text style={styles.uploadModalTitle}>{(category === 'PROMOTION' || category === 'PROMOCION') ? '🌟 Subir a PROMOCIÓN' : 'Subir meme'}</Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
               <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
@@ -949,7 +949,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
 
                 {user && user.uid === selectedMeme.uploadedBy && (
                   <TouchableOpacity style={[styles.detailLikeBtn, { marginTop: 12, borderColor: '#f44', backgroundColor: '#311' }]} onPress={() => deleteMeme(selectedMeme)}>
-                    <Text style={[styles.detailLikeText, { color: '#f44', fontSize: 13 }]}>­ƒùæ´©Å Delete Meme</Text>
+                    <Text style={[styles.detailLikeText, { color: '#f44', fontSize: 13 }]}>🗑️ Delete Meme</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
   menuItem:       { paddingVertical: 13, paddingHorizontal: 10, borderRadius: 10, marginBottom: 4 },
   activeMenuItem: { backgroundColor: '#1e1e1e' },
   promoMenuBtn:   { marginTop: 12, backgroundColor: '#141400', borderWidth: 1, borderColor: '#554400' },
-  donationMenuBtn:{ marginTop: 8, backgroundColor: '#2a1416', borderWidth: 1, borderColor: '#6a343a' },
+  donationMenuBtn:{ marginTop: 8, backgroundColor: '#0a1d0f', borderWidth: 1, borderColor: '#1b5e20' },
   menuText:       { fontSize: 15, color: '#777', fontWeight: '500' },
   activeMenuText: { color: '#fff' },
   spacer:         { flex: 1 },
