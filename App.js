@@ -238,7 +238,7 @@ const AuthScreen = ({ onClose }) => {
           <Text style={{ color: '#aaa', fontSize: 24, fontWeight: 'bold' }}>✕</Text>
         </TouchableOpacity>
       )}
-      <Image source={require('./assets/icon.png')} style={{ width: 180, height: 180, marginBottom: 20 }} resizeMode="contain" />
+      <Image source={require('./assets/sidebar_logo.png')} style={{ width: 190, height: 190, marginBottom: 15 }} resizeMode="contain" />
       <Text style={styles.authSubtitle}>{isRegister ? 'Create an account' : 'Log in'}</Text>
 
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#666"
@@ -292,7 +292,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
   return (
     <View style={styles.sidebar}>
       <View style={{ alignItems: 'center', marginTop: 15, marginBottom: 15 }}>
-        <Image source={require('./assets/icon.png')} style={{ width: 110, height: 110 }} resizeMode="contain" />
+        <Image source={require('./assets/sidebar_logo.png')} style={{ width: 120, height: 120 }} resizeMode="contain" />
       </View>
       <Text style={styles.sidebarUser} numberOfLines={1}>
         {user?.email ? `👤 ${user.email}` : '👤 Guest'}
