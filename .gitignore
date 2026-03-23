@@ -74,3 +74,7 @@ dist/
 # Android / iOS generated files
 android/
 ios/
+
+# Sensitive files
+serviceAccountKey.json.json
+codigos_regalo.txt
