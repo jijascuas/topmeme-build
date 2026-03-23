@@ -270,6 +270,8 @@ const UploadModal = ({ visible, onClose, user, category }) => {
   const [previewReady, setPreviewReady] = useState(false);
   const [uploading, setUploading]     = useState(false);
   const [title, setTitle]             = useState('');
+  const [nickname, setNickname]       = useState('');
+  const [giftCode, setGiftCode]       = useState('');
   const [uploadError, setUploadError] = useState(null);
   const abortRef = useRef(null);
 
@@ -278,7 +280,7 @@ const UploadModal = ({ visible, onClose, user, category }) => {
     if (!result.canceled) { setImageUri(result.assets[0].uri); setImageBase64(result.assets[0].base64); }
   };
 
-  const uploadMeme = async () => {
+  const uploadMeme = async (isGift = false) => {
     if (!imageUri || !title) return;
     setUploading(true);
     setUploadError(null);
@@ -287,26 +289,41 @@ const UploadModal = ({ visible, onClose, user, category }) => {
       const isSafe = await analyzeImageWithAI(imageBase64);
       if (!isSafe) throw new Error('Contenido inapropiado detectado.');
       
-      const isPromotion = category === 'PROMOTION';
+      let requiresStripePayment = category === 'PROMOTION';
+      
+      if (requiresStripePayment && isGift) {
+        const trimmedCode = giftCode.trim();
+        if (trimmedCode.length === 0) throw new Error('Introduce un código de regalo.');
+        
+        // Verificar código en Firestore
+        const codeSnap = await getDocs(query(collection(db, 'giftCodes'), where('code', '==', trimmedCode), where('used', '==', false), limit(1)));
+        if (codeSnap.empty) throw new Error('Código inválido o ya usado.');
+        
+        const codeDoc = codeSnap.docs[0];
+        await updateDoc(codeDoc.ref, { used: true, usedBy: user.uid, usedAt: new Date() });
+        requiresStripePayment = false; // El código anula el pago
+      }
+
       const { url, bytes, publicId } = await uploadToCloudinary(imageUri, abortRef.current.signal);
       
       const docRef = await addDoc(collection(db, 'memes'), {
         title: title.trim(), 
-        category: isPromotion ? 'PROMOTION' : 'general', 
+        category: (category === 'PROMOTION' || category === 'PROMOCION') ? 'PROMOTION' : 'general', 
         imageUrl: url,
         publicId, bytes,
         uploadedBy: user.uid, 
         uploaderEmail: user.email || 'guest',
+        uploaderName: nickname.trim() || 'Anonymous',
         likes: 0, 
         createdAt: new Date(),
-        approved: !isPromotion // False for promotion until payment
+        approved: !requiresStripePayment
       });
 
-      if (isPromotion) {
+      if (requiresStripePayment) {
          Linking.openURL(`https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`);
-         safeAlert('Promoción', 'Meme subido. Esperando pago para activarlo en el ranking.');
+         safeAlert('Promoción', 'Meme subido. Esperando pago para activarlo.');
       } else {
-         safeAlert('Éxito', 'Meme subido correctamente.');
+         safeAlert('Éxito', '¡Meme publicado correctamente!');
       }
       onClose();
     } catch (e) { setUploadError(e.message); }
@@ -317,15 +334,48 @@ const UploadModal = ({ visible, onClose, user, category }) => {
     <Modal visible={visible} transparent>
       <View style={styles.modalOverlay}>
         <View style={styles.uploadModal}>
-          <Text style={styles.uploadModalTitle}>Upload Meme</Text>
-          <TextInput style={styles.input} placeholder="Title" value={title} onChangeText={setTitle} />
-          <TouchableOpacity style={styles.pickBtn} onPress={pickImage}><Text>🖼️ Seleccionar</Text></TouchableOpacity>
-          {uploadError && <Text style={{ color: 'red' }}>{uploadError}</Text>}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-            <TouchableOpacity onPress={onClose}><Text>Cerrar</Text></TouchableOpacity>
-            <TouchableOpacity onPress={uploadMeme} disabled={uploading}>
-              <Text>{category === 'PROMOTION' ? '💳 Pay $10 & Upload' : 'Upload'}</Text>
-            </TouchableOpacity>
+          <Text style={styles.uploadModalTitle}>{category === 'PROMOTION' ? '⭐ Promoción' : 'Subir Meme'}</Text>
+          <TextInput style={styles.input} placeholder="Título del meme" value={title} onChangeText={setTitle} maxLength={60} />
+          <TextInput style={styles.input} placeholder="Nickname (se mostrará en vez de tu email)" value={nickname} onChangeText={setNickname} maxLength={30} />
+          
+          <TouchableOpacity style={styles.pickBtn} onPress={pickImage}><Text>🖼️ Seleccionar Imagen</Text></TouchableOpacity>
+          
+          {(category === 'PROMOTION' || category === 'PROMOCION') && (
+            <View style={styles.giftSection}>
+              <Text style={styles.giftLabel}>¿Tienes un código de regalo?</Text>
+              <TextInput 
+                style={styles.giftInput} 
+                placeholder="Introducir código (30 caracteres)" 
+                value={giftCode} 
+                onChangeText={setGiftCode} 
+                maxLength={30}
+                autoCapitalize="characters"
+              />
+              <Text style={styles.underscoreHint}>
+                {'_ '.repeat(15)} {/* 30 underscores visual representation */}
+              </Text>
+            </View>
+          )}
+
+          {uploadError && <Text style={{ color: 'red', marginTop: 10 }}>{uploadError}</Text>}
+          
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+            <TouchableOpacity onPress={onClose} style={styles.cancelLink}><Text>Cerrar</Text></TouchableOpacity>
+            
+            {category === 'PROMOTION' ? (
+              <>
+                <TouchableOpacity style={styles.giftBtn} onPress={() => uploadMeme(true)} disabled={uploading}>
+                  <Text style={styles.giftBtnText}>Usar Código</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.uploadBtn} onPress={() => uploadMeme(false)} disabled={uploading}>
+                  <Text style={styles.uploadText}>Pagar $10</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={[styles.uploadBtn, { flex: 1 }]} onPress={() => uploadMeme(false)} disabled={uploading}>
+                <Text style={styles.uploadText}>Subir</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -368,8 +418,11 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
       renderItem={({ item }) => (
         <View style={styles.memeCard}>
           <Text style={styles.memeTitle}>{item.title}</Text>
+          <View style={styles.memeMeta}>
+             <Text style={styles.memeAuthor}>👤 {item.uploaderName || 'Anonymous'}</Text>
+          </View>
           <Image source={{ uri: item.imageUrl }} style={styles.memeImage} />
-          <TouchableOpacity onPress={() => handleLike(item)}>
+          <TouchableOpacity onPress={() => handleLike(item)} style={styles.likeBtn}>
             <Text style={styles.likeText}>❤️ {item.likes}</Text>
           </TouchableOpacity>
         </View>
@@ -420,12 +473,22 @@ const styles = StyleSheet.create({
   uploadText: { color: '#fff', fontWeight: 'bold' },
   content: { flex: 1, padding: 10 },
   memeCard: { backgroundColor: '#111', marginVertical: 10, borderRadius: 10, overflow: 'hidden' },
-  memeTitle: { color: '#fff', padding: 10, fontSize: 18 },
+  memeTitle: { color: '#fff', paddingHorizontal: 15, paddingTop: 15, fontSize: 18, fontWeight: 'bold' },
+  memeMeta: { paddingHorizontal: 15, paddingBottom: 10 },
+  memeAuthor: { color: '#888', fontSize: 13 },
   memeImage: { width: '100%', height: 400, resizeMode: 'contain' },
-  likeText: { color: '#fff', padding: 10 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
-  uploadModal: { backgroundColor: '#fff', padding: 20, borderRadius: 10, width: '80%' },
-  input: { borderBottomWidth: 1, borderColor: '#ccc', marginVertical: 10, padding: 5 },
+  likeBtn: { padding: 15 },
+  likeText: { color: '#fff', fontSize: 16 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
+  uploadModal: { backgroundColor: '#fff', padding: 25, borderRadius: 15, width: '90%', maxWidth: 450 },
+  input: { borderBottomWidth: 1, borderColor: '#eee', marginVertical: 8, padding: 10, fontSize: 16 },
+  giftSection: { marginTop: 15, padding: 15, backgroundColor: '#f9f9f9', borderRadius: 10, borderStyle: 'dashed', borderWidth: 1, borderColor: '#ccc' },
+  giftLabel: { fontSize: 12, color: '#666', marginBottom: 5 },
+  giftInput: { fontSize: 18, fontWeight: 'bold', color: '#333', textAlign: 'center', letterSpacing: 2 },
+  underscoreHint: { textAlign: 'center', color: '#ddd', fontSize: 10, marginTop: -5 },
+  giftBtn: { backgroundColor: '#ffd700', padding: 15, borderRadius: 10, flex: 1, alignItems: 'center' },
+  giftBtnText: { color: '#333', fontWeight: 'bold' },
+  cancelLink: { justifyContent: 'center', paddingHorizontal: 10 },
   authContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   authLogo: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
   authSubtitle: { color: '#aaa', marginVertical: 10 },
