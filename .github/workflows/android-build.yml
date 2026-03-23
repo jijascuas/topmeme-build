@@ -21,7 +21,7 @@ jobs:
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22 # Updated to 22
+          node-version: 22
           cache: 'npm'
 
       - name: 🛠️ Install dependencies
@@ -34,27 +34,38 @@ jobs:
         run: |
           keytool -genkey -v -keystore topmeme.keystore -alias topmeme-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass topmeme123 -keypass topmeme123 -dname "CN=Topmeme, OU=Build, O=Jijascuas, L=Unknown, S=Unknown, C=ES"
 
-      - name: ⚙️ Build Android APK & AAB
+      - name: ⚙️ Build Android APK & AAB (Release Signed)
         run: |
           cd android
           chmod +x gradlew
-          # Build APK (Debug) for quick testing
-          ./gradlew assembleDebug
-          # Build App Bundle (Release)
-          ./gradlew bundleRelease --stacktrace
+          ./gradlew assembleRelease bundleRelease \
+            -Pandroid.injected.signing.store.file=../topmeme.keystore \
+            -Pandroid.injected.signing.store.password=topmeme123 \
+            -Pandroid.injected.signing.key.alias=topmeme-alias \
+            -Pandroid.injected.signing.key.password=topmeme123 \
+            --stacktrace
 
       - name: 📂 Organize Artifacts
         run: |
           mkdir -p build-output
-          # Copy APK
-          find android/app/build/outputs/apk -name "*.apk" -exec cp {} build-output/topmeme-app.apk \;
-          # Copy AAB
-          find android/app/build/outputs/bundle -name "*.aab" -exec cp {} build-output/topmeme-release.aab \;
-          # Copy Keystore
+          cp android/app/build/outputs/apk/release/*.apk build-output/topmeme-release.apk || true
+          cp android/app/build/outputs/bundle/release/*.aab build-output/topmeme-release.aab || true
           cp topmeme.keystore build-output/
 
-      - name: 📤 Upload Artifacts
+      - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Topmeme-Android-Artifacts
-          path: build-output/
+          name: Topmeme-Release-APK
+          path: build-output/topmeme-release.apk
+
+      - name: 📤 Upload AAB (Google Play)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Topmeme-Release-AAB
+          path: build-output/topmeme-release.aab
+
+      - name: 📤 Upload Keystore
+        uses: actions/upload-artifact@v4
+        with:
+          name: Topmeme-Build-Keystore
+          path: build-output/topmeme.keystore
