@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, getDoc, setDoc, doc, increment, query, orderBy, limit, onSnapshot, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, getDoc, setDoc, doc, increment, query, orderBy, limit, onSnapshot, arrayUnion, arrayRemove, runTransaction, where } from 'firebase/firestore';
 import { getAuth, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { BannerAd, BannerAdSize, InterstitialAd, AdEventType } from './AdHelpers';
 
@@ -336,7 +336,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
         onPress={() => Linking.openURL('https://ko-fi.com/jijascuas')}
         style={[styles.menuItem, styles.donationMenuBtn]}
       >
-        <Text style={[styles.menuText, { color: '#ff5e5b', fontWeight: 'bold' }]}>
+        <Text style={[styles.menuText, { color: '#81C784', fontWeight: 'bold' }]}>
           ☕ Support / Donate
         </Text>
       </TouchableOpacity>
@@ -389,6 +389,7 @@ const UploadModal = ({ visible, onClose, user, category }) => {
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [title, setTitle]             = useState('');
+  const [giftCode, setGiftCode] = useState('');
   const [uploadError, setUploadError] = useState(null);
   const abortRef = useRef(null);
 
@@ -435,9 +436,9 @@ const UploadModal = ({ visible, onClose, user, category }) => {
     }
   };
 
-  const uploadMeme = async () => {
-    if (!imageUri || !imageBase64 || !previewReady) { safeAlert('Espera', 'La imagen aún se está precargando.'); return; }
-    if (!title.trim()) { safeAlert('Error', 'Escribe un título para tu meme.'); return; }
+  const uploadMeme = async (isGift = false) => {
+    if (!imageUri || !imageBase64 || !previewReady) { safeAlert('Please Wait', 'Image is still pre-loading.'); return; }
+    if (!title.trim()) { safeAlert('Error', 'Write a title for your meme.'); return; }
     
     setUploading(true);
     setUploadProgress(0);
@@ -445,7 +446,6 @@ const UploadModal = ({ visible, onClose, user, category }) => {
     abortRef.current = new AbortController();
     
     try {
-      // 1. Análisis de IA ANTES de cualquier pago
       setAiAnalyzing(true);
       const isSafe = await analyzeImageWithAI(imageBase64);
       setAiAnalyzing(false);
@@ -453,35 +453,53 @@ const UploadModal = ({ visible, onClose, user, category }) => {
       if (!isSafe) {
         setUploading(false);
         setUploadError({
-          title: '🚨 Imagen Rechazada 🚨',
-          reason: 'Nuestra Inteligencia Artificial ha detectado que esta imagen viola nuestras políticas de seguridad (violencia, contenido explícito o inapropiado).',
-          suggestion: 'Por favor, selecciona una imagen que cumpla las normas.'
+          title: '🚨 Image Rejected 🚨',
+          reason: 'Our Artificial Intelligence has detected that this image violates our safety policies (violence, explicit or inappropriate content).',
+          suggestion: 'Please select an image that follows the rules.'
         });
         return;
       }
 
-      // 2. Procesamiento del pago (Solo para Promoción y siempre DESPUÉS del ok de la IA)
-      if (category === 'PROMOTION') {
-        setPaymentProcessing(true);
-        // Simulamos un retraso de procesamiento de pago (ej. Stripe)
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        setPaymentProcessing(false);
+      let requiresStripePayment = false;
+
+      if (category === 'PROMOTION' || category === 'PROMOCION') {
+        if (!isGift) {
+          requiresStripePayment = true;
+        } else {
+          // GIFT CODE ROUTE
+          const trimmedGift = giftCode.trim();
+          if (!trimmedGift) {
+            throw { title: 'Missing Code', reason: 'You must provide a gift code to use this option.', suggestion: 'Paste your 30-character code below.' };
+          }
+          setAiAnalyzing(true); 
+          const giftsRef = collection(db, 'giftCodes');
+          const qCode = query(giftsRef, where('code', '==', trimmedGift), where('used', '==', false), limit(1));
+          const codeSnap = await getDocs(qCode);
+          
+          if (codeSnap.empty) {
+             throw { title: 'Invalid Code', reason: 'The gift code is invalid or has already been used.', suggestion: 'Check the code or pay with card.' };
+          }
+          const codeDoc = codeSnap.docs[0];
+          await updateDoc(codeDoc.ref, { used: true, usedBy: user.uid, usedAt: new Date() });
+          setAiAnalyzing(false);
+        }
       }
 
-      // 3. Subida final
       const { url, bytes, publicId } = await uploadToCloudinary(
         imageUri, 
         abortRef.current.signal, 
         (p) => setUploadProgress(p)
       );
 
-      await addDoc(collection(db, 'memes'), {
+      const docRef = await addDoc(collection(db, 'memes'), {
         title: title.trim(), 
-        category: category === 'PROMOTION' ? 'PROMOTION' : 'general', 
+        category: (category === 'PROMOTION' || category === 'PROMOCION') ? 'PROMOTION' : 'general', 
         imageUrl: url,
         publicId, bytes,
-        uploadedBy: user.uid, uploaderEmail: user.email || 'guest',
+        uploadedBy: user.uid, 
+        uploaderEmail: user.email || 'guest',
         likes: 0, createdAt: new Date(),
+        approved: !requiresStripePayment
       });
 
       if (Platform.OS === 'android' && interstitial && interstitial.loaded) {
@@ -493,6 +511,11 @@ const UploadModal = ({ visible, onClose, user, category }) => {
       const statsRef = doc(db, 'stats', 'storage');
       setDoc(statsRef, { totalBytes: increment(bytes || 0), totalMemes: increment(1), lastUpload: new Date() }, { merge: true }).catch(console.error);
       checkAndCleanupStorage().catch(console.error);
+
+      if (requiresStripePayment) {
+        if (Platform.OS === 'web') alert('Wait! Now you have to complete the 10$ payment.\n\nOpening secure Stripe Checkout...');
+        Linking.openURL(`https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`);
+      }
 
     } catch (e) {
       if (e?.title === 'Upload cancelled' || e?.title === 'Subida cancelada') { setUploading(false); setPaymentProcessing(false); setAiAnalyzing(false); return; }
@@ -516,7 +539,7 @@ const UploadModal = ({ visible, onClose, user, category }) => {
 
           {/* Cabecera — el botón ✕ SIEMPRE funciona */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <Text style={styles.uploadModalTitle}>{category === 'PROMOCION' ? '⭐ Subir a PROMOCIÓN' : 'Subir meme'}</Text>
+            <Text style={styles.uploadModalTitle}>{category === 'PROMOTION' ? '⭐ Upload to PROMOTION' : 'Upload meme'}</Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
               <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
@@ -638,7 +661,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
         
         if (category === 'PROMOTION') {
            // Promocion simplemente coge los VIP, ordenados por fecha (ya vienen así)
-           filtered = allMemes.filter(m => m.category === 'PROMOTION' || m.category === 'PROMOCION');
+           filtered = allMemes.filter(m => (m.category === 'PROMOTION' || m.category === 'PROMOCION') && m.approved !== false);
         } else if (category === 'My Memes') {
            // Mis Memes: Coge todos los que el usuario subió
            filtered = allMemes.filter(m => m.uploadedBy === user?.uid);
@@ -655,6 +678,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
 
            filtered = allMemes.filter(m => {
              if (m.category === 'PROMOTION' || m.category === 'PROMOCION') return false; // Los VIP no salen en el global gratis
+             if (m.approved === false) return false; // Hide unpaid ones
              const memeDate = m.createdAt?.toDate ? m.createdAt.toDate() : new Date(m.createdAt);
              return memeDate >= cutoff;
            });
@@ -697,7 +721,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
     }
 
     // Confirmation popups
-    const title = isLiked ? 'Confirmar' : 'Confirmar';
+    const title = isLiked ? 'Confirm' : 'Confirm';
     const msg = isLiked ? '¿Seguro que deseas quitar tu Me gusta?' : '¿Quieres darle Me gusta a este meme?';
 
     if (Platform.OS === 'web') {
