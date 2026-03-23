@@ -13,7 +13,7 @@ const bannerAdUnitId = Platform.OS === 'android' ? 'ca-app-pub-4159023709825629/
 const interstitialAdUnitId = Platform.OS === 'android' ? 'ca-app-pub-4159023709825629/2066752210' : '';
 const interstitial = Platform.OS === 'android' ? InterstitialAd.createForAdRequest(interstitialAdUnitId) : null;
 
-// ÔöÇÔöÇ Firebase config ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ------------------- Firebase config -------------------
 const firebaseConfig = {
   apiKey: "AIzaSyCfsHn4kUB2XCGe7eaLtLFBtXCzftUXdu4",
   authDomain: "topmeme-jijascuas.firebaseapp.com",
@@ -26,7 +26,7 @@ const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 const auth = getAuth(app);
 
-// ÔöÇÔöÇ Cloudinary config & storage limits ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ------------------- Cloudinary config & storage limits -------------------
 const CLOUDINARY_CLOUD_NAME   = 'dg8tmvhzn';
 const CLOUDINARY_UPLOAD_PRESET = 'topmeme_preset';
 const CLOUDINARY_MAX_FILE_BYTES = 10 * 1024 * 1024;          // 10 MB / archivo
@@ -41,7 +41,7 @@ const CLEANUP_BATCH             = 10;
  */
 const getBlobForUpload = async (imageUri) => {
   if (typeof document !== 'undefined') {
-    // ÔöÇÔöÇ WEB ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+    // ── WEB ──────────────────────────────────────────────────────────────────
     return new Promise((resolve, reject) => {
       const img = new window.Image();
       img.crossOrigin = 'anonymous';
@@ -54,7 +54,7 @@ const getBlobForUpload = async (imageUri) => {
         canvas.width = w; canvas.height = h;
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         canvas.toBlob(
-          blob => blob ? resolve(blob) : reject(new Error('canvas toBlob fall├│')),
+          blob => blob ? resolve(blob) : reject(new Error('canvas toBlob falló')),
           'image/jpeg', 0.85
         );
       };
@@ -62,16 +62,16 @@ const getBlobForUpload = async (imageUri) => {
       img.src = imageUri;
     });
   }
-  // ÔöÇÔöÇ NATIVO ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+  // ── NATIVO ───────────────────────────────────────────────────────────────
   const resp = await fetch(imageUri);
   if (!resp.ok) throw new Error('No se pudo leer el archivo local');
   return resp.blob();
 };
 
-/** Sube imagen a Cloudinary. Acepta una AbortSignal para cancelaci├│n y un callback onProgress. */
+/** Sube imagen a Cloudinary. Acepta una AbortSignal para cancelación y un callback onProgress. */
 const uploadToCloudinary = (imageUri, signal, onProgress) => {
   return new Promise(async (resolve, reject) => {
-    // 1. Obtener blob (con compresi├│n en web)
+    // 1. Obtener blob (con compresión en web)
     let blob;
     try {
       blob = await getBlobForUpload(imageUri);
@@ -79,12 +79,12 @@ const uploadToCloudinary = (imageUri, signal, onProgress) => {
       return reject({ title: 'Error al procesar la imagen', reason: e.message, suggestion: 'Prueba con otra imagen.' });
     }
 
-    // 2. Comprobar tama├▒o
+    // 2. Comprobar tamaño
     if (blob.size > CLOUDINARY_MAX_FILE_BYTES) {
       return reject({
         title: 'Imagen demasiado grande',
-        reason: `El archivo pesa ${(blob.size / 1024 / 1024).toFixed(1)} MB. L├¡mite 10 MB.`,
-        suggestion: 'Usa una imagen m├ís peque├▒a.',
+        reason: `El archivo pesa ${(blob.size / 1024 / 1024).toFixed(1)} MB. Límite 10 MB.`,
+        suggestion: 'Usa una imagen más pequeña.',
       });
     }
 
@@ -108,23 +108,23 @@ const uploadToCloudinary = (imageUri, signal, onProgress) => {
       try {
         data = JSON.parse(xhr.responseText);
       } catch (ex) {
-        return reject({ title: 'Error de respuesta', reason: 'Cloudinary devolvi├│ datos inv├ílidos.' });
+        return reject({ title: 'Error de respuesta', reason: 'Cloudinary devolvió datos inválidos.' });
       }
 
       if (xhr.status >= 200 && xhr.status < 300) {
         if (!data.secure_url) {
-          reject({ title: 'Respuesta inesperada', reason: 'Cloudinary no devolvi├│ URL.' });
+          reject({ title: 'Respuesta inesperada', reason: 'Cloudinary no devolvió URL.' });
         } else {
           resolve({ url: data.secure_url, bytes: data.bytes || blob.size, publicId: data.public_id });
         }
       } else {
         const msg = data?.error?.message || `HTTP ${xhr.status}`;
-        reject({ title: 'Error de Cloudinary', reason: msg, suggestion: 'Revisa tu configuraci├│n.' });
+        reject({ title: 'Error de Cloudinary', reason: msg, suggestion: 'Revisa tu configuración.' });
       }
     };
 
     xhr.onerror = () => {
-      reject({ title: 'Error de conexi├│n', reason: 'No se pudo conectar con Cloudinary.' });
+      reject({ title: 'Error de conexión', reason: 'No se pudo conectar con Cloudinary.' });
     };
 
     xhr.onabort = () => {
@@ -139,21 +139,21 @@ const uploadToCloudinary = (imageUri, signal, onProgress) => {
   });
 };
 
-/** Auto-limpieza: borra los memes m├ís antiguos si el almacenamiento supera el 80 %. */
+/** Auto-limpieza: borra los memes más antiguos si el almacenamiento supera el 80 %. */
 const checkAndCleanupStorage = async () => {
   try {
     const statsRef = doc(db, 'stats', 'storage');
     const snap = await getDoc(statsRef);
     const total = snap.exists() ? (snap.data().totalBytes || 0) : 0;
     if (total < CLEANUP_THRESHOLD) return;
-    console.warn(`ÔÜá´©Å Almacenamiento al ${((total / CLOUDINARY_TOTAL_BYTES) * 100).toFixed(1)}%. LimpiandoÔÇª`);
+    console.warn(`⚠️ Almacenamiento al ${((total / CLOUDINARY_TOTAL_BYTES) * 100).toFixed(1)}%. Limpiando...`);
     const q = query(collection(db, 'memes'), orderBy('createdAt', 'asc'), limit(CLEANUP_BATCH));
     const oldSnap = await getDocs(q);
     let freed = 0;
     for (const d of oldSnap.docs) { freed += d.data().bytes || 0; await deleteDoc(d.ref); }
     await updateDoc(statsRef, { totalBytes: Math.max(0, total - freed), lastCleanup: new Date(), cleanedMemes: increment(CLEANUP_BATCH) });
-    console.log(`Ô£à ${oldSnap.size} memes eliminados, ${(freed / 1024 / 1024).toFixed(1)} MB liberados.`);
-  } catch (e) { console.error('Limpieza autom├ítica:', e); }
+    console.log(`✅ ${oldSnap.size} memes eliminados, ${(freed / 1024 / 1024).toFixed(1)} MB liberados.`);
+  } catch (e) { console.error('Limpieza automática:', e); }
 };
 
 /** Analiza la imagen usando Google Cloud Vision API (SafeSearch). Devuelve true si es segura. */
@@ -172,15 +172,15 @@ const analyzeImageWithAI = async (base64String) => {
     
     if (!response.ok) {
       if (response.status === 403) {
-        throw new Error('La API de Cloud Vision no est├í habilitada en la consola de Google Cloud.');
+        throw new Error('La API de Cloud Vision no está habilitada en la consola de Google Cloud.');
       }
-      throw new Error(`Error de visi├│n API: ${response.status}`);
+      throw new Error(`Error de visión API: ${response.status}`);
     }
 
     const data = await response.json();
     const safeSearch = data.responses[0]?.safeSearchAnnotation;
     
-    if (!safeSearch) return true; // Si no hay datos, asumimos que est├í bien (o hubo un error leve)
+    if (!safeSearch) return true; // Si no hay datos, asumimos que está bien (o hubo un error leve)
 
     // Valores: UNKNOWN, VERY_UNLIKELY, UNLIKELY, POSSIBLE, LIKELY, VERY_LIKELY
     const isUnsafe = (val) => val === 'LIKELY' || val === 'VERY_LIKELY' || val === 'POSSIBLE';
@@ -191,11 +191,11 @@ const analyzeImageWithAI = async (base64String) => {
     return true; // Imagen limpia
   } catch (e) {
     console.warn('AI Analysis Skipped:', e.message);
-    return true; // Si no est├í habiltiada o falla, permitimos la subida para no fastidiar la UX.
+    return true; // Si no está habiltiada o falla, permitimos la subida para no fastidiar la UX.
   }
 };
 
-// ÔöÇÔöÇ Constants & Helpers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Constants & Helpers ───────────────────────────────────────────────────────
 const categories = ['Day', 'Week', 'Month', 'Year', 'My Memes'];
 
 const safeAlert = (title, message) => {
@@ -203,7 +203,7 @@ const safeAlert = (title, message) => {
   else Alert.alert(title, message);
 };
 
-// ÔöÇÔöÇ Auth Screen ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Auth Screen ───────────────────────────────────────────────────────────────
 const AuthScreen = ({ onClose }) => {
   const [email, setEmail]         = useState('');
   const [password, setPassword]   = useState('');
@@ -241,10 +241,10 @@ const AuthScreen = ({ onClose }) => {
     <View style={styles.authContainer}>
       {onClose && (
         <TouchableOpacity style={{ position: 'absolute', top: 40, right: 20, padding: 10, zIndex: 10 }} onPress={onClose}>
-          <Text style={{ color: '#aaa', fontSize: 24, fontWeight: 'bold' }}>Ô£ò</Text>
+          <Text style={{ color: '#aaa', fontSize: 24, fontWeight: 'bold' }}>✕</Text>
         </TouchableOpacity>
       )}
-      <Text style={styles.authLogo}>­ƒöÑ Topmeme</Text>
+      <Text style={styles.authLogo}>🔥 Topmeme</Text>
       <Text style={styles.authSubtitle}>{isRegister ? 'Create an account' : 'Log in'}</Text>
 
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#666"
@@ -271,11 +271,11 @@ const AuthScreen = ({ onClose }) => {
           </View>
 
           <TouchableOpacity style={styles.googleBtn} onPress={handleGoogle}>
-            <Text style={styles.googleBtnText}>­ƒç¼ &nbsp;Continue with Google</Text>
+            <Text style={styles.googleBtnText}>G &nbsp;Continue with Google</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.anonBtn, { marginTop: 10 }]} onPress={handleAnonymous}>
-            <Text style={styles.anonBtnText}>­ƒæ╗ Continue as guest</Text>
+            <Text style={styles.anonBtnText}>👤 Continue as guest</Text>
           </TouchableOpacity>
         </>
       )}
@@ -283,7 +283,7 @@ const AuthScreen = ({ onClose }) => {
   );
 };
 
-// ÔöÇÔöÇ Sidebar ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Sidebar ───────────────────────────────────────────────────────────────────
 const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleTheme, onLoginRequest }) => {
   const isGuest = user?.isAnonymous || !user;
   
@@ -328,7 +328,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
         style={[styles.menuItem, current === 'PROMOTION' && styles.activeMenuItem, styles.promoMenuBtn]}
       >
         <Text style={[styles.menuText, current === 'PROMOTION' ? {color: '#fff'} : {color: '#ffd700'}, { fontWeight: 'bold' }]}>
-          Ô¡É PROMOTION
+          🌟 PROMOTION
         </Text>
       </TouchableOpacity>
 
@@ -337,15 +337,15 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
         style={[styles.menuItem, styles.donationMenuBtn]}
       >
         <Text style={[styles.menuText, { color: '#ff5e5b', fontWeight: 'bold' }]}>
-          Ôÿò Support / Donate
+          ❤️ Support / Donate
         </Text>
       </TouchableOpacity>
 
       <View style={styles.spacer} />
 
       <TouchableOpacity style={[styles.ruleBtn, isLight && { backgroundColor: '#f9f9f9', borderColor: '#ddd' }]}
-        onPress={() => safeAlert('App Rules', '­ƒñû Artificial Intelligence rigorously reviews all images before publishing.\n\nÔØî PROHIBITED:\n- Explicit content or nudity.\n- Violence, gore, or weapons.\n- Any illegal activity.\n\n­ƒôÅ Size limit: 10 MB.\nFormat: JPG, PNG, GIF, WebP.')}>
-        <Text style={[styles.ruleText, isLight && { color: '#555' }]}>­ƒôï Rules</Text>
+        onPress={() => safeAlert('App Rules', '🤖 Artificial Intelligence rigorously reviews all images before publishing.\n\n🚫 PROHIBITED:\n- Explicit content or nudity.\n- Violence, gore, or weapons.\n- Any illegal activity.\n\n📏 Size limit: 10 MB.\nFormat: JPG, PNG, GIF, WebP.')}>
+        <Text style={[styles.ruleText, isLight && { color: '#555' }]}>📋 Rules</Text>
       </TouchableOpacity>
 
       {isGuest ? (
@@ -366,7 +366,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
 
       <TouchableOpacity onPress={toggleTheme} style={[styles.logoutBtn, { marginTop: 12, backgroundColor: isLight ? '#f0f0f0' : '#222', borderColor: isLight ? '#ddd' : '#444' }]}>
         <Text style={{ color: isLight ? '#555' : '#aaa', fontSize: 13, fontWeight: 'bold' }}>
-          {isLight ? '­ƒîÖ Dark Mode' : 'ÔÿÇ´©Å Light Mode'}
+          {isLight ? '🌙 Dark Mode' : '☀️ Light Mode'}
         </Text>
       </TouchableOpacity>
 
@@ -379,7 +379,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, toggleT
   );
 };
 
-// ÔöÇÔöÇ Upload Modal ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Upload Modal ──────────────────────────────────────────────────────────────
 const UploadModal = ({ visible, onClose, user, category }) => {
   const [imageUri, setImageUri]       = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
@@ -426,7 +426,7 @@ const UploadModal = ({ visible, onClose, user, category }) => {
     setUploadError(null);
     setPreviewReady(false);
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { safeAlert('Permiso denegado', 'Necesitamos acceso a tu galer├¡a.'); return; }
+    if (status !== 'granted') { safeAlert('Permiso denegado', 'Necesitamos acceso a tu galería.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
@@ -545,21 +545,21 @@ const UploadModal = ({ visible, onClose, user, category }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.uploadModal}>
 
-          {/* Cabecera ÔÇö el bot├│n Ô£ò SIEMPRE funciona */}
+          {/* Cabecera — el botón ✕ SIEMPRE funciona */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <Text style={styles.uploadModalTitle}>{category === 'PROMOCION' ? 'Ô¡É Subir a PROMOCI├ôN' : 'Subir meme'}</Text>
+            <Text style={styles.uploadModalTitle}>{category === 'PROMOCION' ? '🌟 Subir a PROMOCIÓN' : 'Subir meme'}</Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>Ô£ò</Text>
+              <Text style={styles.closeBtnText}>✕</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.uploadModalSub}>
             {category === 'PROMOCION' 
               ? 'Destaca tu meme. Coste: 10$' 
-              : `Participar├ís en el Ranking Global`}
+              : `Participarás en el Ranking Global`}
           </Text>
 
           <TextInput
-            style={styles.input} placeholder="T├¡tulo del meme" placeholderTextColor="#666"
+            style={styles.input} placeholder="Título del meme" placeholderTextColor="#666"
             value={title} onChangeText={setTitle} maxLength={80} editable={!uploading}
           />
 
@@ -582,18 +582,18 @@ const UploadModal = ({ visible, onClose, user, category }) => {
                 onLoad={() => setPreviewReady(true)}
                 onError={() => {
                   setPreviewReady(false);
-                  setUploadError({ title: 'Imagen inv├ílida', reason: 'No se pudo precargar esta imagen.', suggestion: 'Usa un formato JPG, PNG, GIF o WebP.' });
+                  setUploadError({ title: 'Imagen inválida', reason: 'No se pudo precargar esta imagen.', suggestion: 'Usa un formato JPG, PNG, GIF o WebP.' });
                 }}
               />
               {!previewReady && !uploadError && (
                 <View style={styles.previewLoader}>
                   <ActivityIndicator color="#3897f0" />
-                  <Text style={{ color: '#aaa', marginTop: 6, fontSize: 12 }}>Cargando vista previaÔÇª</Text>
+                  <Text style={{ color: '#aaa', marginTop: 6, fontSize: 12 }}>Cargando vista previa...</Text>
                 </View>
               )}
               {previewReady && (
                 <View style={styles.previewBadge}>
-                  <Text style={styles.previewBadgeText}>Ô£ö Lista para subir</Text>
+                  <Text style={styles.previewBadgeText}>✅ Lista para subir</Text>
                 </View>
               )}
             </View>
@@ -681,7 +681,7 @@ const UploadModal = ({ visible, onClose, user, category }) => {
   );
 };
 
-// ÔöÇÔöÇ Meme Screen ÔÇö feed estilo Instagram ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Meme Screen ÔÇö feed estilo Instagram ──────────────────────────────────────
 const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
   const [memes, setMemes]               = useState([]);
   const [loading, setLoading]           = useState(true);
@@ -690,7 +690,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
 
   useEffect(() => {
     setLoading(true);
-    // Solicitamos los ├║ltimos 500 memes globales
+    // Solicitamos los últimos 500 memes globales
     const q = query(collection(db, 'memes'), orderBy('createdAt', 'desc'), limit(500));
     const unsub = onSnapshot(q,
       snap => { 
@@ -698,14 +698,14 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
         let filtered = [];
         
         if (category === 'PROMOTION') {
-           // Promocion simplemente coge los VIP, ordenados por fecha (ya vienen as├¡)
+           // Promocion simplemente coge los VIP, ordenados por fecha (ya vienen así)
            filtered = allMemes.filter(m => m.category === 'PROMOTION' || m.category === 'PROMOCION');
         } else if (category === 'My Memes') {
-           // Mis Memes: Coge todos los que el usuario subi├│
+           // Mis Memes: Coge todos los que el usuario subió
            filtered = allMemes.filter(m => m.uploadedBy === user?.uid);
            filtered.sort((a, b) => b.createdAt - a.createdAt); // Orden descendiente
         } else {
-           // L├│gica competitiva: filtrar por antig├╝edad y ordenar por Likes
+           // Lógica competitiva: filtrar por antig├╝edad y ordenar por Likes
            let hoursAgo = 24;
            if (category === 'Week') hoursAgo = 24 * 7;
            if (category === 'Month')    hoursAgo = 24 * 30;
@@ -720,7 +720,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
              return memeDate >= cutoff;
            });
 
-           // Algoritmo: Mayor n├║mero de Likes va primero
+           // Algoritmo: Mayor número de Likes va primero
            filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0));
         }
 
@@ -734,8 +734,8 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
 
   const handleLike = async (meme) => {
     if (user?.isAnonymous || !user) {
-      if (Platform.OS === 'web') alert('­ƒöÆ Members Only: Sign up or log in to vote.');
-      else Alert.alert('­ƒöÆ Members Only', 'Sign up or log in to vote.');
+      if (Platform.OS === 'web') alert('🔒 Members Only: Sign up or log in to vote.');
+      else Alert.alert('🔒 Members Only', 'Sign up or log in to vote.');
       if (onLoginRequest) onLoginRequest();
       return;
     }
@@ -749,7 +749,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
         const timeElapsed = Date.now() - meme.likeTimelock[user.uid];
         if (timeElapsed < 60000) { // 1 minute in milliseconds
           const secondsLeft = Math.ceil((60000 - timeElapsed) / 1000);
-          const msg = `­ƒòÆ Please wait ${secondsLeft} seconds before canceling your vote.`;
+          const msg = `⏳ Please wait ${secondsLeft} seconds before canceling your vote.`;
           if (Platform.OS === 'web') alert(msg);
           else Alert.alert('Too Fast', msg);
           return;
@@ -759,7 +759,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
 
     // Confirmation popups
     const title = isLiked ? 'Confirmar' : 'Confirmar';
-    const msg = isLiked ? '┬┐Seguro que deseas quitar tu Me gusta?' : '┬┐Quieres darle Me gusta a este meme?';
+    const msg = isLiked ? '¿Seguro que deseas quitar tu Me gusta?' : '¿Quieres darle Me gusta a este meme?';
 
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(msg);
@@ -819,10 +819,10 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
   };
 
   const shareMeme = async (meme) => {
-    const shareMessage = `­ƒñú Look at this Top Meme: "${meme.title}"\n${meme.imageUrl || meme.url}`;
+    const shareMessage = `🤣 Look at this Top Meme: "${meme.title}"\n${meme.imageUrl || meme.url}`;
     
     if (Platform.OS === 'web') {
-       const text = encodeURIComponent(`­ƒñú Look at this Top Meme: "${meme.title}"\n`);
+       const text = encodeURIComponent(`🤣 Look at this Top Meme: "${meme.title}"\n`);
        const link = encodeURIComponent(meme.imageUrl || meme.url);
        const intentUrl = `https://twitter.com/intent/tweet?text=${text}&url=${link}`;
        window.open(intentUrl, '_blank');
@@ -869,14 +869,14 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
   if (loading) return (
     <View style={[styles.content, { justifyContent: 'center', alignItems: 'center' }, isLight && { backgroundColor: '#f5f5f5' }]}>
       <ActivityIndicator color="#3897f0" size="large" />
-      <Text style={{ color: isLight ? '#888' : '#aaa', marginTop: 12 }}>Loading memesÔÇª</Text>
+      <Text style={{ color: isLight ? '#888' : '#aaa', marginTop: 12 }}>Loading memes...</Text>
     </View>
   );
 
   if (memes.length === 0) return (
     <View style={[styles.content, { justifyContent: 'center', alignItems: 'center' }, isLight && { backgroundColor: '#f5f5f5' }]}>
       <Text style={[styles.emptyText, isLight && { color: '#666' }]}>
-        {category === 'PROMOTION' ? 'Ô¡É No promotions yet' : (category === 'My Memes' ? '­ƒùé´©Å No memes found' : '­ƒÅ£´©Å No memes in this top')}
+        {category === 'PROMOTION' ? '🌟 No promotions yet' : (category === 'My Memes' ? '📂 No memes found' : '🏚️ No memes in this top')}
       </Text>
       <Text style={{ color: isLight ? '#888' : '#555', marginTop: 8 }}>
         {category === 'PROMOTION' ? 'Be the first to stand out for $10!' : (category === 'My Memes' ? 'You have not uploaded any meme yet.' : 'Be the first to upload and win!')}
@@ -888,10 +888,10 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
     <TouchableOpacity style={[styles.gridCell, isLight && { backgroundColor: '#fff', borderColor: '#e0e0e0' }]} onPress={() => setSelectedMeme(m)}>
       <Image source={{ uri: m.imageUrl || m.url }} style={styles.gridThumb} resizeMode="cover" />
       {(m.category === 'PROMOTION' || m.category === 'PROMOCION') && (
-        <View style={styles.vipBadgeSmall}><Text style={styles.vipBadgeTextSmall}>Ô¡É VIP</Text></View>
+        <View style={styles.vipBadgeSmall}><Text style={styles.vipBadgeTextSmall}>🌟 VIP</Text></View>
       )}
       <View style={[styles.gridLikesBadge, isLight && { backgroundColor: 'rgba(255,255,255,0.85)' }]}>
-        <Text style={[styles.gridLikesText, isLight && { color: '#000' }]}>{m.likedBy?.includes(user?.uid) ? 'ÔØñ´©Å' : '­ƒñì'} {m.likes || 0}</Text>
+        <Text style={[styles.gridLikesText, isLight && { color: '#000' }]}>{m.likedBy?.includes(user?.uid) ? '❤️' : '🤍'} {m.likes || 0}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -899,10 +899,10 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
   return (
     <View style={[styles.content, isLight && { backgroundColor: '#f0f2f5' }]}>
       <Text style={[styles.headerTitle, isLight && { color: '#111' }, category === 'PROMOTION' && { color: '#ffd700' }]}>
-        {category === 'PROMOTION' ? 'Ô¡É PROMOTION' : (category === 'My Memes' ? '­ƒæñ My Memes' : `­ƒÅå Top Memes of the ${category}`)}
+        {category === 'PROMOTION' ? '🌟 PROMOTION' : (category === 'My Memes' ? '👤 My Memes' : `🏆 Top Memes of the ${category}`)}
       </Text>
       <Text style={[styles.disclaimerText, isLight && { color: '#666' }]}>
-        ÔÜá´©Å Topmeme is not responsible for the content uploaded by users.
+        ⚠️ Topmeme is not responsible for the content uploaded by users.
       </Text>
 
       {/* Grid */}
@@ -920,7 +920,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
           {selectedMeme && (
             <>
               <TouchableOpacity style={styles.detailClose} onPress={() => setSelectedMeme(null)}>
-                <Text style={styles.detailCloseText}>├ù</Text>
+                <Text style={styles.detailCloseText}>✕</Text>
               </TouchableOpacity>
               
               <Image source={{ uri: selectedMeme.imageUrl || selectedMeme.url }} style={styles.detailImage} resizeMode="contain" />
@@ -935,7 +935,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
                      onPress={() => handleLike(selectedMeme)}
                   >
                     <Text style={styles.detailLikeText}>
-                      {selectedMeme.likedBy?.includes(user?.uid) ? 'ÔØñ´©Å Cancelar' : '­ƒñì Me gusta'}
+                      {selectedMeme.likedBy?.includes(user?.uid) ? '❤️ Cancelar' : '🤍 Me gusta'}
                     </Text>
                   </TouchableOpacity>
                   
@@ -943,7 +943,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
                      style={[styles.detailLikeBtn, { borderColor: '#1da1f2' }]} 
                      onPress={() => shareMeme(selectedMeme)}
                   >
-                    <Text style={[styles.detailLikeText, { color: '#1da1f2' }]}>­ƒÉª Share on X</Text>
+                    <Text style={[styles.detailLikeText, { color: '#1da1f2' }]}>𝕏 Share on X</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -961,9 +961,9 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest }) => {
   );
 };
 
-// ÔöÇÔöÇ END OF FILE
+// ── END OF FILE
 
-// ÔöÇÔöÇ App ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser]                   = useState(null);
   const [authLoading, setAuthLoading]     = useState(true);
@@ -982,7 +982,7 @@ export default function App() {
   if (authLoading) return (
     <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
       <ActivityIndicator color="#3897f0" size="large" />
-      <Text style={{ color: '#aaa', marginTop: 12 }}>Loading TopmemeÔÇª</Text>
+      <Text style={{ color: '#aaa', marginTop: 12 }}>Loading Topmeme...</Text>
     </View>
   );
 
@@ -1024,7 +1024,7 @@ export default function App() {
   );
 }
 
-// ÔöÇÔöÇ Styles ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   // Layout
   container:    { flex: 1, backgroundColor: '#000' },
