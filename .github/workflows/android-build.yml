@@ -53,35 +53,38 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          # Build APK (Release) and AAB (Release)
-          ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=../topmeme.keystore \
-            -Pandroid.injected.signing.store.password=topmeme123 \
-            -Pandroid.injected.signing.key.alias=topmeme-alias \
-            -Pandroid.injected.signing.key.password=topmeme123 \
+          # Run both builds in one command to share intermediate outputs and ensure signing
+          ./gradlew assembleRelease bundleRelease \
+            -PMYAPP_RELEASE_STORE_FILE=${{ github.workspace }}/topmeme.keystore \
+            -PMYAPP_RELEASE_STORE_PASSWORD=topmeme123 \
+            -PMYAPP_RELEASE_KEY_ALIAS=topmeme-alias \
+            -PMYAPP_RELEASE_KEY_PASSWORD=topmeme123 \
             --no-daemon --stacktrace
-          
-          ./gradlew bundleRelease \
-            -Pandroid.injected.signing.store.file=../topmeme.keystore \
-            -Pandroid.injected.signing.store.password=topmeme123 \
-            -Pandroid.injected.signing.key.alias=topmeme-alias \
-            -Pandroid.injected.signing.key.password=topmeme123 \
-            --no-daemon --stacktrace
+
+      - name: 🔍 List Android Build Outputs (Debug)
+        run: |
+          echo "Checking APKs:"
+          find android/app/build/outputs/apk -name "*.apk" || echo "No APKs found"
+          echo "Checking Bundles:"
+          find android/app/build/outputs/bundle -name "*.aab" || echo "No AABs found"
 
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Topmeme-APK-Release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
       - name: 📤 Upload AAB
         uses: actions/upload-artifact@v4
         with:
           name: Topmeme-AAB-Release
-          path: android/app/build/outputs/bundle/release/app-release.aab
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
 
       - name: 📤 Upload Keystore (Key)
         uses: actions/upload-artifact@v4
         with:
           name: Topmeme-Key-Store
           path: topmeme.keystore
+          if-no-files-found: warn
