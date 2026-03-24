@@ -1,8 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
+    
+    match /memes/{meme} {
+      allow read: if true;
+      
+      // ONLY REGISTERED USERS CAN UPLOAD (NO ANONYMOUS)
+      allow create: if request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      
+      // ELIMINAR SOLO SI ERES EL DUEÑO
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uploadedBy;
+      
+      // ACTUALIZAR LIKES O TUS PROPIOS MEMES (SIN TOCAR APROBACIÓN NI IMAGEN)
+      allow update: if (request.auth != null && (
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy', 'likeTimelock'])) ||
+        (request.auth.uid == resource.data.uploadedBy && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['approved', 'uploadedBy', 'imageUrl']))
+      ));
+    }
+    
+    match /giftCodes/{code} {
+      allow read, update: if request.auth != null;
+    }
+    
+    match /stats/{stat} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

@@ -21,15 +21,6 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       }
-    },
-    "plugins": [
-      [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-4159023709825629~0000000000",
-          "userTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you."
-        }
-      ]
-    ]
+    }
   }
 }
