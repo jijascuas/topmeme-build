@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: 'npm'
 
       - name: ☕ Setup JDK 17
         uses: actions/setup-java@v4
@@ -32,7 +33,7 @@ jobs:
           cache: 'gradle'
 
       - name: 🛠️ Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: 🔑 Setup Persistent Keystore
         run: |
@@ -59,7 +60,7 @@ jobs:
             -PMYAPP_RELEASE_STORE_PASSWORD=topmeme123 \
             -PMYAPP_RELEASE_KEY_ALIAS=topmeme-alias \
             -PMYAPP_RELEASE_KEY_PASSWORD=topmeme123 \
-            --no-daemon --stacktrace
+            --no-daemon --stacktrace --info
 
       - name: 🔍 List Android Build Outputs (Debug)
         run: |
