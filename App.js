@@ -63,7 +63,8 @@ const App = () => {
         }}
         onMessage={onMessage}
         startInLoadingState={true}
-        userAgent="TopmemeAndroidWebView"
+        injectedJavaScriptBeforeContentLoaded={`window.IS_TOPMEME_APK = true; true;`}
+        userAgent={"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"}
         renderLoading={() => (
           <View style={styles.loaderContainer}>
             <ActivityIndicator size="large" color="#3897f0" />
