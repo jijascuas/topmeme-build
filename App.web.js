@@ -882,7 +882,8 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
     };
 
     // 1. Try React Native WebView Bridge (for the APK)
-    if (typeof window !== 'undefined' && window.ReactNativeWebView) {
+    // Only if UserAgent indicates the new bridge is supported
+    if (typeof window !== 'undefined' && window.ReactNativeWebView && navigator.userAgent.includes("TopmemeAndroidWebView")) {
        window.ReactNativeWebView.postMessage(JSON.stringify({
          type: 'SHARE',
          message: `${shareData.text}\n${shareData.url}`,
