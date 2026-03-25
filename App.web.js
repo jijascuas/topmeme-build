@@ -6,7 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, getDoc, setDoc, doc, increment, query, where, orderBy, limit, onSnapshot, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
-import { getAuth, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 // No AdMob on web version
 
 // ------------------- Firebase config -------------------
@@ -216,18 +216,44 @@ const AuthScreen = ({ onClose }) => {
     setLoading(false);
   };
 
+  useEffect(() => {
+    // Handle redirect result if user just came back from Google Sign-In
+    getRedirectResult(auth).catch(e => {
+      // 'auth/no-auth-event' is normal when there's no redirect to process
+      if (e.code !== 'auth/no-auth-event' && e.code !== 'auth/popup-closed-by-user') {
+        console.error("Auth redirect result error:", e);
+        // On some WebViews, this fails due to storage partitioning.
+        // We show a more helpful message.
+        if (e.message.includes('missing initial state')) {
+          safeAlert('Login Error', 'Your device is blocking the secure redirection. Try logging in with email/password instead or use a standard browser.');
+        }
+      }
+    });
+  }, []);
+
   const handleGoogle = async () => {
-    if (Platform.OS !== 'web') {
-      safeAlert('Unfinished Feature', 'Google login is currently only configured for the web version. On mobile, please use your email and password.');
-      return;
-    }
+    // Detect if we are on a mobile device or WebView
+    // Most WebView user agents contain "Linux; Android" or "iPhone; CPU iPhone OS"
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+
     setLoading(true);
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const provider = new GoogleAuthProvider();
+      // Optional: force account selection
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      if (isMobile) {
+        // Redirection is more stable in WebViews
+        await signInWithRedirect(auth, provider);
+        // Note: the page will navigate away, the rest of the flow is handled by getRedirectResult in useEffect
+      } else {
+        await signInWithPopup(auth, provider);
+      }
     } catch (e) {
       if (e.code !== 'auth/popup-closed-by-user') safeAlert('Error', e.message);
+      setLoading(false);
     }
-    setLoading(false);
   };
 
 
