@@ -4,6 +4,7 @@ import {
   StyleSheet,
   StatusBar,
   BackHandler,
+  Share,
   Platform,
   ActivityIndicator,
   View
@@ -36,6 +37,21 @@ const App = () => {
     }
   }, [canGoBack]);
 
+  const onMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'SHARE') {
+        Share.share({
+          message: data.message,
+          title: data.title || 'Topmeme',
+          url: data.url
+        });
+      }
+    } catch (e) {
+      console.log("Error processing message:", e);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
@@ -45,7 +61,9 @@ const App = () => {
         onNavigationStateChange={(navState) => {
           setCanGoBack(navState.canGoBack);
         }}
+        onMessage={onMessage}
         startInLoadingState={true}
+        userAgent="TopmemeAndroidWebView"
         renderLoading={() => (
           <View style={styles.loaderContainer}>
             <ActivityIndicator size="large" color="#3897f0" />

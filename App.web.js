@@ -880,8 +880,19 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
       text: `🤣 Look at this Top Meme: "${meme.title}"`,
       url: meme.imageUrl || meme.url
     };
+
+    // 1. Try React Native WebView Bridge (for the APK)
+    if (typeof window !== 'undefined' && window.ReactNativeWebView) {
+       window.ReactNativeWebView.postMessage(JSON.stringify({
+         type: 'SHARE',
+         message: `${shareData.text}\n${shareData.url}`,
+         title: shareData.title,
+         url: shareData.url
+       }));
+       return;
+    }
     
-    // Check for native share support (Web Share API)
+    // 2. Try Web Share API (for mobile browsers)
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share(shareData);
