@@ -875,22 +875,37 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
   };
 
   const shareMeme = async (meme) => {
-    const shareMessage = `🤣 Look at this Top Meme: "${meme.title}"\n${meme.imageUrl || meme.url}`;
+    const shareData = {
+      title: 'Topmeme',
+      text: `🤣 Look at this Top Meme: "${meme.title}"`,
+      url: meme.imageUrl || meme.url
+    };
     
+    // Check for native share support (Web Share API)
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (e) {
+        if (e.name !== 'AbortError') console.error("Share failed:", e);
+      }
+    }
+
+    // Fallback: Twitter/X intent
     if (Platform.OS === 'web') {
-       const text = encodeURIComponent(`🤣 Look at this Top Meme: "${meme.title}"\n`);
-       const link = encodeURIComponent(meme.imageUrl || meme.url);
+       const text = encodeURIComponent(`${shareData.text}\n`);
+       const link = encodeURIComponent(shareData.url);
        const intentUrl = `https://twitter.com/intent/tweet?text=${text}&url=${link}`;
        window.open(intentUrl, '_blank');
     } else {
       try {
         await Share.share({
-          message: shareMessage,
-          url: meme.imageUrl || meme.url, // Solo para iOS
-          title: 'Share Topmeme'
+          message: `${shareData.text}\n${shareData.url}`,
+          url: shareData.url, 
+          title: 'Topmeme'
         });
       } catch (error) {
-        safeAlert('Error', error.message);
+        console.error(error);
       }
     }
   };
@@ -1014,21 +1029,32 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
                   </View>
                 )}
 
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                   <TouchableOpacity 
-                     style={[styles.detailLikeBtn, selectedMeme.likedBy?.includes(user?.uid) && { borderColor: '#ff4d6d' }]} 
+                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100 }, selectedMeme.likedBy?.includes(user?.uid) && { borderColor: '#ff4d6d' }]} 
                      onPress={() => handleLike(selectedMeme)}
                   >
                     <Text style={styles.detailLikeText}>
                       {selectedMeme.likedBy?.includes(user?.uid) ? '❤️ Cancel' : '🤍 Like'}
                     </Text>
                   </TouchableOpacity>
-                  
+
                   <TouchableOpacity 
-                     style={[styles.detailLikeBtn, { borderColor: '#1da1f2' }]} 
+                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#4caf50' }]} 
                      onPress={() => shareMeme(selectedMeme)}
                   >
-                    <Text style={[styles.detailLikeText, { color: '#1da1f2' }]}>𝕏 Share on X</Text>
+                    <Text style={[styles.detailLikeText, { color: '#4caf50' }]}>📤 Share</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#1da1f2' }]} 
+                     onPress={() => {
+                        const text = encodeURIComponent(`🤣 Look at this Top Meme: "${selectedMeme.title}"\n`);
+                        const link = encodeURIComponent(selectedMeme.imageUrl || selectedMeme.url);
+                        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
+                     }}
+                  >
+                    <Text style={[styles.detailLikeText, { color: '#1da1f2' }]}>𝕏 Post</Text>
                   </TouchableOpacity>
                 </View>
 
