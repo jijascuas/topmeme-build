@@ -903,17 +903,6 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
     </View>
   );
 
-  if (memes.length === 0) return (
-    <View style={[styles.content, { justifyContent: 'center', alignItems: 'center' }, isLight && { backgroundColor: '#f5f5f5' }]}>
-      <Text style={[styles.emptyText, isLight && { color: '#666' }]}>
-        {category === 'PROMOTION' ? '🌟 No promotions yet' : (category === 'My Memes' ? '📂 No memes found' : '🏚️ No memes in this top')}
-      </Text>
-      <Text style={{ color: isLight ? '#888' : '#555', marginTop: 8 }}>
-        {category === 'PROMOTION' ? 'Be the first to stand out for $10!' : (category === 'My Memes' ? 'You have not uploaded any meme yet.' : 'Be the first to upload and win!')}
-      </Text>
-    </View>
-  );
-
   const renderItem = ({ item: m }) => (
     <TouchableOpacity style={[styles.gridCell, isLight && { backgroundColor: '#fff', borderColor: '#e0e0e0' }]} onPress={() => setSelectedMeme(m)}>
       <Image source={{ uri: m.imageUrl || m.url }} style={styles.gridThumb} resizeMode="cover" />
@@ -932,15 +921,15 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
 
   return (
     <View style={[styles.content, isLight && { backgroundColor: '#f0f2f5' }]}>
-      {/* --- NEW: Header for Toggle --- */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+      {/* --- Header: Always visible --- */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: isLight ? '#eee' : '#222' }}>
         {isMobile && (
-          <TouchableOpacity onPress={onToggleSidebar} style={{ padding: 10, marginRight: 5, backgroundColor: isLight ? '#fff' : '#222', borderRadius: 8 }}>
-            <Text style={{ fontSize: 20, color: isLight ? '#111' : '#fff' }}>☰</Text>
+          <TouchableOpacity onPress={onToggleSidebar} style={{ padding: 10, marginRight: 10, backgroundColor: '#3897f0', borderRadius: 8 }}>
+            <Text style={{ fontSize: 20, color: '#fff' }}>☰</Text>
           </TouchableOpacity>
         )}
-        <Text style={[styles.headerTitle, isLight && { color: '#111' }, category === 'PROMOTION' && { color: '#ffd700' }, { marginBottom: 0, flex: 1 }]}>
-          {category === 'PROMOTION' ? '🌟 PROMOTION' : (category === 'My Memes' ? '👤 My Memes' : `🏆 Top of the ${category}`)}
+        <Text style={[styles.headerTitle, isLight && { color: '#111' }, category === 'PROMOTION' && { color: '#ffd700' }, { marginBottom: 0, flex: 1, fontSize: 18 }]}>
+          {category === 'PROMOTION' ? '🌟 PROMOTION' : (category === 'My Memes' ? '👤 My Memes' : `🏆 ${category} Top`)}
         </Text>
       </View>
 
@@ -948,15 +937,33 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
         ⚠️ Topmeme is not responsible for the content uploaded by users.
       </Text>
 
-      {/* Grid */}
-      <FlatList 
-        data={memes} 
-        keyExtractor={m => m.id} 
-        numColumns={isMobile ? 2 : 3}
-        columnWrapperStyle={styles.gridRow}
-        renderItem={renderItem}
-        key={isMobile ? '2col' : '3col'}
-      />
+      {/* Grid OR Empty State */}
+      {memes.length === 0 ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
+          <Text style={[styles.emptyText, isLight && { color: '#666' }, { fontSize: 22, textAlign: 'center' }]}>
+            {category === 'PROMOTION' ? '🌟 No promotions yet' : (category === 'My Memes' ? '📂 No memes found' : '🏚️ No memes in this top')}
+          </Text>
+          <Text style={{ color: isLight ? '#888' : '#555', marginTop: 12, textAlign: 'center', fontSize: 15 }}>
+            {category === 'PROMOTION' ? 'Be the first to stand out for $10!' : (category === 'My Memes' ? 'You have not uploaded any meme yet.' : 'There are no memes in this ranking yet. Be the first!')}
+          </Text>
+          <TouchableOpacity 
+             style={{ marginTop: 25, backgroundColor: '#3897f0', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 }}
+             onPress={onToggleSidebar}
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Change Category ☰</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList 
+          data={memes} 
+          keyExtractor={m => m.id} 
+          numColumns={isMobile ? 2 : 3}
+          columnWrapperStyle={styles.gridRow}
+          renderItem={renderItem}
+          key={isMobile ? '2col' : '3col'}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
       {/* Detail Modal */}
       <Modal visible={!!selectedMeme} transparent animationType="fade" onRequestClose={() => setSelectedMeme(null)}>
