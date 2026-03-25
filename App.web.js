@@ -1255,8 +1255,8 @@ const styles = StyleSheet.create({
   detailMeta:      { marginTop: 16, alignItems: 'center' },
   detailTitle:     { color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 },
   detailAuthor:    { color: '#666', fontSize: 13, marginBottom: 12 },
-  detailLikeBtn:   { backgroundColor: '#1a1a1a', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: '#333' },
-  detailLikeText:  { color: '#ff4d6d', fontSize: 16, fontWeight: '700' },
+  detailLikeBtn:   { backgroundColor: '#1a1a1a', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
+  detailLikeText:  { color: '#ff4d6d', fontSize: 16, fontWeight: '700', textAlign: 'center' },
 
   // Upload Modal
   modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
