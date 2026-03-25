@@ -27,7 +27,7 @@ async function upload() {
     const chunk = codes.slice(i, i + batchSize);
     
     chunk.forEach(code => {
-      const ref = db.collection('giftCodes').doc(code);
+      const ref = db.collection('gift_codes').doc(code);
       batch.set(ref, { 
         code: code,
         used: false, 

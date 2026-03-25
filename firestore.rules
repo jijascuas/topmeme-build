@@ -18,7 +18,7 @@ service cloud.firestore {
       ));
     }
     
-    match /giftCodes/{code} {
+    match /gift_codes/{code} {
       allow read, update: if request.auth != null;
     }
     

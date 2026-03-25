@@ -1,17 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, FlatList, TouchableOpacity, Image,
-  SafeAreaView, Modal, Alert, Platform, TextInput, ActivityIndicator, ScrollView, Linking, Share
+  SafeAreaView, Modal, Alert, Platform, TextInput, ActivityIndicator, ScrollView, Linking, Share, useWindowDimensions
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, getDoc, setDoc, doc, increment, query, where, orderBy, limit, onSnapshot, arrayUnion, arrayRemove, runTransaction } from 'firebase/firestore';
 import { getAuth, signInAnonymously, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { BannerAd, BannerAdSize, InterstitialAd, AdEventType } from './AdHelpers';
-
-const bannerAdUnitId = Platform.OS === 'android' ? 'ca-app-pub-4159023709825629/4936458139' : '';
-const interstitialAdUnitId = Platform.OS === 'android' ? 'ca-app-pub-4159023709825629/2066752210' : '';
-const interstitial = Platform.OS === 'android' ? InterstitialAd.createForAdRequest(interstitialAdUnitId) : null;
+// No AdMob on web version
 
 // ------------------- Firebase config -------------------
 const firebaseConfig = {
@@ -242,7 +238,9 @@ const AuthScreen = ({ onClose }) => {
           <Text style={{ color: '#aaa', fontSize: 24, fontWeight: 'bold' }}>✕</Text>
         </TouchableOpacity>
       )}
-      <Image source={require('./assets/sidebar_logo.png')} style={{ width: 190, height: 190, marginBottom: 15 }} resizeMode="contain" />
+      <TouchableOpacity onPress={() => Linking.openURL('https://pump.fun/coin/6SYj84AfiTydCG1usCGDJZBRmDQ8qj161rtKFD1pump')}>
+        <Image source={require('./assets/sidebar_logo.png')} style={{ width: 190, height: 190, marginBottom: 15 }} resizeMode="contain" />
+      </TouchableOpacity>
       <Text style={styles.authSubtitle}>{isRegister ? 'Create an account' : 'Log in'}</Text>
 
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#666"
@@ -279,9 +277,9 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
   return (
     <View style={styles.sidebar}>
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
-        <View style={{ alignItems: 'center', marginTop: 15, marginBottom: 15 }}>
+        <TouchableOpacity style={{ alignItems: 'center', marginTop: 15, marginBottom: 15 }} onPress={() => Linking.openURL('https://pump.fun/coin/6SYj84AfiTydCG1usCGDJZBRmDQ8qj161rtKFD1pump')}>
           <Image source={require('./assets/sidebar_logo.png')} style={{ width: 120, height: 120 }} resizeMode="contain" />
-        </View>
+        </TouchableOpacity>
         <Text style={[styles.sidebarUser, { marginBottom: 10, color: '#aaa' }]} numberOfLines={1}>
           {user?.email && !user.isAnonymous ? `👤 ${user.email.split('@')[0]}...` : '👤 Guest'}
         </Text>
@@ -450,11 +448,14 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
         const trimmedCode = giftCode.trim();
         if (!trimmedCode) throw new Error('Introduce un código de regalo.');
         
-        const codeSnap = await getDocs(query(collection(db, 'giftCodes'), where('code', '==', trimmedCode), where('used', '==', false), limit(1)));
-        if (codeSnap.empty) throw new Error('Código inválido o ya usado.');
+        const codeRef = doc(db, 'gift_codes', trimmedCode);
+        const codeSnap = await getDoc(codeRef);
         
-        const codeDoc = codeSnap.docs[0];
-        await updateDoc(codeDoc.ref, { used: true, usedBy: user.uid, usedAt: new Date() });
+        if (!codeSnap.exists() || codeSnap.data().used) {
+          throw new Error('Código inválido o ya usado.');
+        }
+        
+        await updateDoc(codeRef, { used: true, usedBy: user.uid, usedAt: new Date() });
         requiresStripePayment = false;
         setPaymentProcessing(false);
       } else if (requiresStripePayment) {
@@ -468,6 +469,23 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
         abortRef.current.signal, 
         (p) => setUploadProgress(p)
       );
+
+      // --- NEW: Cleanup previous "ON HOLD" memes for this user in PROMOTION category ---
+      if (category === 'PROMOTION' || category === 'PROMOCION') {
+        try {
+          const qHold = query(
+            collection(db, 'memes'),
+            where('uploadedBy', '==', user.uid),
+            where('category', '==', 'PROMOTION'),
+            where('approved', '==', false)
+          );
+          const holdSnap = await getDocs(qHold);
+          const deleteOps = holdSnap.docs.map(d => deleteDoc(d.ref));
+          await Promise.all(deleteOps);
+        } catch (err) {
+          console.warn('Silent failure cleaning up old hold memes:', err);
+        }
+      }
 
       const docRef = await addDoc(collection(db, 'memes'), {
         title: title.trim(), 
@@ -484,9 +502,16 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
       });
 
       if (requiresStripePayment) {
-        Linking.openURL(`https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`);
-        setPaymentProcessing(false);
-        safeAlert('Promotion', 'Meme uploaded. Waiting for payment to activate it in the ranking.');
+        const stripeUrl = `https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`;
+        if (Platform.OS === 'web') {
+          // Direct redirection on web to avoid popup blockers
+          window.location.href = stripeUrl;
+          return; // The page will change, no need for more logic here
+        } else {
+          Linking.openURL(stripeUrl);
+          setPaymentProcessing(false);
+          safeAlert('Promotion', 'Meme uploaded. Waiting for payment to activate it in the ranking.');
+        }
       } else {
         safeAlert('Success', 'Meme published successfully!');
       }
@@ -576,8 +601,8 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
                 placeholder="GIFT CODE" 
                 value={giftCode} 
                 onChangeText={setGiftCode} 
-                maxLength={30}
-                autoCapitalize="characters"
+                maxLength={100}
+                autoCapitalize="none"
               />
               <Text style={styles.underscoreHint}>{'_ '.repeat(15)}</Text>
             </View>
@@ -656,11 +681,13 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
 };
 
 // ── Meme Screen ÔÇö feed estilo Instagram ──────────────────────────────────────
-const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction }) => {
+const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onToggleSidebar }) => {
   const [memes, setMemes]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [selectedMeme, setSelectedMeme] = useState(null);
   const [likingId, setLikingId]         = useState(null);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
 
   useEffect(() => {
     if (!user && (category === 'My Memes')) {
@@ -811,7 +838,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction }) =
         }
       });
       
-      // Notificar al componente App de la acción de Like/Unlike para el contador de anuncios
+      // Notificar al componente App de la acción de Like/Unlike
       if (onLikeAction) onLikeAction();
       
     } catch (e) {
@@ -891,9 +918,9 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction }) =
     <TouchableOpacity style={[styles.gridCell, isLight && { backgroundColor: '#fff', borderColor: '#e0e0e0' }]} onPress={() => setSelectedMeme(m)}>
       <Image source={{ uri: m.imageUrl || m.url }} style={styles.gridThumb} resizeMode="cover" />
       {(m.category === 'PROMOTION' || m.category === 'PROMOCION') && (
-        <View style={[styles.vipBadgeSmall, !m.approved && { backgroundColor: '#ff4d6d' }]}>
-          <Text style={styles.vipBadgeTextSmall}>
-            {m.approved ? '🌟 PROMOTION' : '⏳ ON HOLD'}
+        <View style={[styles.vipBadgeSmall, !m.approved && { backgroundColor: '#ff4d6d' }, { position: 'absolute', top: 5, right: 5, width: 34, height: 34, borderRadius: 17, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }]}>
+          <Text style={[styles.vipBadgeTextSmall, { fontSize: 10 }]}>
+            {m.approved ? '🌟' : '⏳'}
           </Text>
         </View>
       )}
@@ -905,9 +932,18 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction }) =
 
   return (
     <View style={[styles.content, isLight && { backgroundColor: '#f0f2f5' }]}>
-      <Text style={[styles.headerTitle, isLight && { color: '#111' }, category === 'PROMOTION' && { color: '#ffd700' }]}>
-        {category === 'PROMOTION' ? '🌟 PROMOTION' : (category === 'My Memes' ? '👤 My Memes' : `🏆 Top Memes of the ${category}`)}
-      </Text>
+      {/* --- NEW: Header for Toggle --- */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+        {isMobile && (
+          <TouchableOpacity onPress={onToggleSidebar} style={{ padding: 10, marginRight: 5, backgroundColor: isLight ? '#fff' : '#222', borderRadius: 8 }}>
+            <Text style={{ fontSize: 20, color: isLight ? '#111' : '#fff' }}>☰</Text>
+          </TouchableOpacity>
+        )}
+        <Text style={[styles.headerTitle, isLight && { color: '#111' }, category === 'PROMOTION' && { color: '#ffd700' }, { marginBottom: 0, flex: 1 }]}>
+          {category === 'PROMOTION' ? '🌟 PROMOTION' : (category === 'My Memes' ? '👤 My Memes' : `🏆 Top of the ${category}`)}
+        </Text>
+      </View>
+
       <Text style={[styles.disclaimerText, isLight && { color: '#666' }]}>
         ⚠️ Topmeme is not responsible for the content uploaded by users.
       </Text>
@@ -916,9 +952,10 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction }) =
       <FlatList 
         data={memes} 
         keyExtractor={m => m.id} 
-        numColumns={3}
+        numColumns={isMobile ? 2 : 3}
         columnWrapperStyle={styles.gridRow}
         renderItem={renderItem}
+        key={isMobile ? '2col' : '3col'}
       />
 
       {/* Detail Modal */}
@@ -986,28 +1023,20 @@ export default function App() {
   const [showUpload, setShowUpload]       = useState(false);
   const [isLight, setIsLight]             = useState(false);
   const [showAuth, setShowAuth]           = useState(false);
-  const [likeCounter, setLikeCounter]     = useState(0);
   const [nickname, setNickname]           = useState('Anonymous');
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
+
+  // Sync sidebar visibility with window resize
+  useEffect(() => {
+     if (!isMobile) setSidebarVisible(true);
+  }, [isMobile]);
 
   useEffect(() => {
-    // Configuración global de anuncios intersticiales
-    let unsubscribeLoaded = () => {};
-    let unsubscribeClosed = () => {};
-    if (Platform.OS === 'android' && interstitial) {
-      unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
-        console.log('AdMob: Interstitial loaded');
-      });
-      unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
-        console.log('AdMob: Interstitial closed, reloading...');
-        interstitial.load(); // Recargar para la próxima vez
-      });
-      interstitial.load();
-    }
-
     const unsubAuth = onAuthStateChanged(auth, u => { 
       if (!u) {
-        setUser(null); // Instantly set to null so UI shows "Guest"
-        // Automatically sign in anonymously if no user is found
+        setUser(null);
         signInAnonymously(auth).catch(e => {
           console.error("Anonymous auth failed:", e);
           setAuthLoading(false);
@@ -1019,8 +1048,6 @@ export default function App() {
     });
     return () => {
       unsubAuth();
-      unsubscribeLoaded();
-      unsubscribeClosed();
     };
   }, []);
 
@@ -1040,30 +1067,43 @@ export default function App() {
   return (
     <SafeAreaView style={[styles.container, isLight && { backgroundColor: '#f0f2f5' }]}>
       <View style={styles.appContainer}>
-        <Sidebar
-          current={currentCategory}
-          onSelect={setCurrentCategory}
-          user={user}
-          onUpload={() => setShowUpload(true)}
-          onLogout={handleLogout}
-          isLight={isLight}
-          onLoginRequest={() => setShowAuth(true)}
-          nickname={nickname}
-          setNickname={setNickname}
-        />
+        {sidebarVisible && (
+          <View style={[
+            styles.sidebarWrapper, 
+            isMobile && { position: 'absolute', zIndex: 1000, height: '100%', width: 250, borderRightWidth: 1, borderColor: '#333' }
+          ]}>
+            <Sidebar
+              current={currentCategory}
+              onSelect={(cat) => {
+                setCurrentCategory(cat);
+                if (isMobile) setSidebarVisible(false);
+              }}
+              user={user}
+              onUpload={() => setShowUpload(true)}
+              onLogout={handleLogout}
+              isLight={isLight}
+              onLoginRequest={() => setShowAuth(true)}
+              nickname={nickname}
+              setNickname={setNickname}
+            />
+            {isMobile && (
+               <TouchableOpacity 
+                 onPress={() => setSidebarVisible(false)} 
+                 style={{ position: 'absolute', top: 20, right: -40, backgroundColor: '#000', padding: 10, borderRadius: 20 }}
+               >
+                 <Text style={{ color: '#fff', fontSize: 18 }}>✕</Text>
+               </TouchableOpacity>
+            )}
+          </View>
+        )}
         <MemeScreen 
           category={currentCategory} 
           user={user} 
           isLight={isLight} 
           onLoginRequest={() => setShowAuth(true)} 
+          onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
           onLikeAction={() => {
-            const nextCount = likeCounter + 1;
-            setLikeCounter(nextCount);
-            if (nextCount % 5 === 0) {
-              if (Platform.OS === 'android' && interstitial && interstitial.loaded) {
-                interstitial.show();
-              }
-            }
+            // No action needed for web version (ad-free)
           }}
         />
       </View>
@@ -1078,16 +1118,6 @@ export default function App() {
         />
       )}
 
-      {Platform.OS === 'android' && bannerAdUnitId && (
-        <View style={{ alignItems: 'center', backgroundColor: isLight ? '#f0f2f5' : '#111' }}>
-          <BannerAd
-            unitId={bannerAdUnitId}
-            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
-          />
-        </View>
-      )}
-
 
     </SafeAreaView>
   );
@@ -1098,6 +1128,10 @@ const styles = StyleSheet.create({
   // Layout
   container:    { flex: 1, backgroundColor: '#000' },
   appContainer: { flex: 1, flexDirection: 'row' },
+
+  // Sidebar
+  sidebarWrapper: { backgroundColor: '#111' },
+  sidebar:        { width: 250, backgroundColor: '#111', padding: 20, borderRightWidth: 1, borderColor: '#222', minHeight: '100%'},
 
   // Auth
   authContainer: { flex: 1, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', padding: 30 },
@@ -1116,7 +1150,8 @@ const styles = StyleSheet.create({
   googleBtnText: { color: '#222', fontWeight: '700', fontSize: 16 },
 
   // Sidebar
-  sidebar:        { width: 220, backgroundColor: '#111', padding: 20, borderRightWidth: 1, borderColor: '#222' },
+  sidebarWrapper: { backgroundColor: '#111' },
+  sidebar:        { width: 250, backgroundColor: '#111', padding: 20, borderRightWidth: 1, borderColor: '#222', minHeight: '100%' },
   sidebarTitle:   { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
   sidebarUser:    { fontSize: 13, color: '#bbb', marginLeft: 15 },
   nicknameDisplayBtn: { backgroundColor: '#1e1e1e', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, alignSelf: 'flex-start', marginLeft: 15, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
@@ -1130,8 +1165,8 @@ const styles = StyleSheet.create({
   spacer:         { flex: 1 },
   ruleBtn:        { backgroundColor: '#1a1a1a', padding: 12, borderRadius: 10, alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: '#333' },
   ruleText:       { color: '#aaa', fontSize: 14 },
-  uploadBtn:      { backgroundColor: '#3897f0', padding: 14, borderRadius: 10, alignItems: 'center' },
-  uploadText:     { color: '#fff', fontWeight: 'bold', fontSize: 15 },
+  uploadBtn:      { backgroundColor: '#3897f0', padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  uploadText:     { color: '#fff', fontWeight: 'bold', fontSize: 15, textAlign: 'center' },
   logoutBtn:      { backgroundColor: '#200000', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#500' },
   logoutText:     { color: '#f44', fontSize: 14 },
   guestBanner:    { backgroundColor: '#1a1a0a', borderWidth: 1, borderColor: '#443300', borderRadius: 10, padding: 12, alignItems: 'center' },
@@ -1176,8 +1211,8 @@ const styles = StyleSheet.create({
   previewLoader:   { alignItems: 'center', marginTop: 8 },
   previewBadge:    { marginTop: 6, alignItems: 'center' },
   previewBadgeText:{ color: '#4caf50', fontSize: 12, fontWeight: '700' },
-  cancelBtn:       { flex: 1, backgroundColor: '#1a1a1a', padding: 14, borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
-  cancelBtnText:   { color: '#aaa', fontSize: 15 },
+  cancelBtn:       { flex: 1, backgroundColor: '#1a1a1a', padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#333' },
+  cancelBtnText:   { color: '#aaa', fontSize: 15, textAlign: 'center' },
   closeBtn:        { padding: 6 },
   closeBtnText:    { color: '#aaa', fontSize: 20, fontWeight: 'bold' },
 
@@ -1198,6 +1233,6 @@ const styles = StyleSheet.create({
   giftLabel: { fontSize: 11, color: '#aa8800', marginBottom: 4, textAlign: 'center' },
   giftInput: { fontSize: 18, fontWeight: 'bold', color: '#ffd700', textAlign: 'center', letterSpacing: 2 },
   underscoreHint: { textAlign: 'center', color: '#332200', fontSize: 10, marginTop: -4 },
-  giftBtn: { backgroundColor: '#ffd700', paddingVertical: 14, borderRadius: 10, flex: 1, alignItems: 'center' },
-  giftBtnText: { color: '#000', fontWeight: 'bold', fontSize: 14 },
+  giftBtn: { backgroundColor: '#ffd700', paddingVertical: 14, borderRadius: 10, flex: 1, alignItems: 'center', justifyContent: 'center' },
+  giftBtnText: { color: '#000', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
 });
