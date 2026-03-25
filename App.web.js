@@ -1020,19 +1020,30 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
 
       {/* Detail Modal */}
       <Modal visible={!!selectedMeme} transparent animationType="fade" onRequestClose={() => setSelectedMeme(null)}>
-        <View style={styles.detailOverlay}>
+        <TouchableOpacity 
+          activeOpacity={1} 
+          style={styles.detailOverlay} 
+          onPress={() => setSelectedMeme(null)}
+        >
           {selectedMeme && (
             <>
-              <TouchableOpacity style={styles.detailClose} onPress={() => setSelectedMeme(null)}>
+              <TouchableOpacity 
+                style={[styles.detailClose, { zIndex: 10 }]} 
+                onPress={() => setSelectedMeme(null)}
+              >
                 <Text style={styles.detailCloseText}>✕</Text>
               </TouchableOpacity>
-              
-              <Image source={{ uri: selectedMeme.imageUrl || selectedMeme.url }} style={styles.detailImage} resizeMode="contain" />
-              
-              <View style={styles.detailMeta}>
+
+              <Image 
+                source={{ uri: selectedMeme.imageUrl || selectedMeme.url }} 
+                style={styles.detailImage} 
+                resizeMode="contain" 
+              />
+
+              <View onStartShouldSetResponder={() => true} style={styles.detailMeta}>
                 <Text style={styles.detailTitle}>{selectedMeme.title}</Text>
-                <Text style={styles.detailAuthor}>By: {selectedMeme.uploaderName || 'Anonymous'}</Text>
-                
+                <Text style={styles.detailAuthor}>by {selectedMeme.author || 'Anonymous'}</Text>
+
                 {(selectedMeme.category === 'PROMOTION' || selectedMeme.category === 'PROMOCION') && (
                   <View style={[styles.statusBadge, { backgroundColor: selectedMeme.approved ? '#ffd700' : '#ff4d6d' }]}>
                     <Text style={styles.statusBadgeText}>
@@ -1043,8 +1054,8 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
 
                 <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                   <TouchableOpacity 
-                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100 }, selectedMeme.likedBy?.includes(user?.uid) && { borderColor: '#ff4d6d' }]} 
-                     onPress={() => handleLike(selectedMeme)}
+                    style={[styles.detailLikeBtn, { flex: 1, minWidth: 100 }, selectedMeme.likedBy?.includes(user?.uid) && { borderColor: '#ff4d6d' }]} 
+                    onPress={() => handleLike(selectedMeme)}
                   >
                     <Text style={styles.detailLikeText}>
                       {selectedMeme.likedBy?.includes(user?.uid) ? '❤️ Cancel' : '🤍 Like'}
@@ -1052,33 +1063,33 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#4caf50' }]} 
-                     onPress={() => shareMeme(selectedMeme)}
+                    style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#4caf50' }]} 
+                    onPress={() => shareMeme(selectedMeme)}
                   >
                     <Text style={[styles.detailLikeText, { color: '#4caf50' }]}>📤 Share</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#1da1f2' }]} 
-                     onPress={() => {
-                        const text = encodeURIComponent(`🤣 Look at this Top Meme: "${selectedMeme.title}"\n`);
-                        const link = encodeURIComponent(selectedMeme.imageUrl || selectedMeme.url);
-                        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
-                     }}
+                    style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#1da1f2' }]} 
+                    onPress={() => {
+                      const text = encodeURIComponent(`🤣 Look at this Top Meme: "${selectedMeme.title}"\n`);
+                      const link = encodeURIComponent(selectedMeme.imageUrl || selectedMeme.url);
+                      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
+                    }}
                   >
                     <Text style={[styles.detailLikeText, { color: '#1da1f2' }]}>𝕏 Post</Text>
                   </TouchableOpacity>
                 </View>
 
                 {user && user.uid === selectedMeme.uploadedBy && (
-                  <TouchableOpacity style={[styles.detailLikeBtn, { marginTop: 12, borderColor: '#f44', backgroundColor: '#311' }]} onPress={() => deleteMeme(selectedMeme)}>
+                  <TouchableOpacity style={[styles.detailLikeBtn, { marginTop: 12, borderColor: '#f44', backgroundColor: '#311', width: '100%' }]} onPress={() => deleteMeme(selectedMeme)}>
                     <Text style={[styles.detailLikeText, { color: '#f44', fontSize: 13 }]}>🗑️ Delete Meme</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </>
           )}
-        </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
