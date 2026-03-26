@@ -298,7 +298,8 @@ const AuthScreen = ({ onClose }) => {
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLoginRequest, nickname, setNickname }) => {
   const isGuest = user?.isAnonymous || !user;
-  
+  const [showRulesModal, setShowRulesModal] = useState(false);
+
 
   return (
     <View style={styles.sidebar}>
@@ -360,9 +361,24 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
       <View style={styles.spacer} />
 
       <TouchableOpacity style={[styles.ruleBtn, isLight && { backgroundColor: '#f9f9f9', borderColor: '#ddd' }]}
-        onPress={() => safeAlert('App Rules', '🤖 Artificial Intelligence rigorously reviews all images before publishing.\n\n🚫 PROHIBITED:\n- Explicit content or nudity.\n- Violence, gore, or weapons.\n- Any illegal activity.\n\n📏 Size limit: 10 MB.\nFormat: JPG, PNG, GIF, WebP.')}>
+        onPress={() => setShowRulesModal(true)}>
         <Text style={[styles.ruleText, isLight && { color: '#555' }]}>📋 Rules</Text>
       </TouchableOpacity>
+
+      <Modal visible={showRulesModal} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: isLight ? '#fff' : '#1e1e2e', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 }}>
+            <Text style={{ color: isLight ? '#111' : '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 16 }}>📋 App Rules</Text>
+            <Text style={{ color: isLight ? '#333' : '#ccc', fontSize: 14, lineHeight: 22 }}>
+              {'🤖 Artificial Intelligence rigorously reviews all images before publishing.\n\n🚫 PROHIBITED:\n- Explicit content or nudity.\n- Violence, gore, or weapons.\n- Any illegal activity.\n\n📏 Size limit: 10 MB.\nFormat: JPG, PNG, GIF, WebP.'}
+            </Text>
+            <TouchableOpacity onPress={() => setShowRulesModal(false)}
+              style={{ marginTop: 20, backgroundColor: '#1da1f2', borderRadius: 8, padding: 12, alignItems: 'center' }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {isGuest ? (
         <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: '#1da1f2' }]} onPress={onLoginRequest}>
