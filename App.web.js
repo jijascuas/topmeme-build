@@ -469,7 +469,6 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [title, setTitle]             = useState('');
-  const [nickname, setNickname]       = useState(propNickname || 'Anonymous');
   const [giftCode, setGiftCode]       = useState('');
   const [uploadError, setUploadError] = useState(null);
   const abortRef = useRef(null);
@@ -589,7 +588,7 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
         publicId, bytes,
         uploadedBy: user.uid, 
         // uploaderEmail: user.email || 'guest', // Email hidden by user request
-        uploaderName: (nickname || 'Anonymous').trim(),
+        uploaderName: (propNickname || 'Anonymous').trim(),
         likes: 0, 
         likedBy: [],
         createdAt: new Date(),
