@@ -380,10 +380,16 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
         </TouchableOpacity>
       )}
 
+      {!isGuest && (
+        <TouchableOpacity
+          onPress={() => Linking.openURL('https://topmeme-jijascuas.web.app/delete-account')}
+          style={{ marginTop: 8, marginBottom: 4, alignItems: 'center' }}
+        >
+          <Text style={{ color: '#ff6b6b', fontSize: 12, textDecorationLine: 'underline' }}>🗑️ Delete Account</Text>
+        </TouchableOpacity>
+      )}
 
-
-
-      <TouchableOpacity onPress={() => Linking.openURL('https://topmeme-jijascuas.web.app/privacy.html')} style={{ marginTop: 20, marginBottom: 20, alignItems: 'center' }}>
+      <TouchableOpacity onPress={() => Linking.openURL('https://topmeme-jijascuas.web.app/privacy.html')} style={{ marginTop: 12, marginBottom: 20, alignItems: 'center' }}>
         <Text style={{ color: '#aaa', fontSize: 12, textDecorationLine: 'underline' }}>Privacy Policy</Text>
       </TouchableOpacity>
       </ScrollView>

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "expo start",
     "web": "expo start --web",
-    "build": "expo export --output-dir dist && powershell -Command \"Copy-Item -Path public/ads.txt, public/privacy.html -Destination dist -Force\"",
+    "build": "expo export --output-dir dist && powershell -Command \"Copy-Item -Path public/ads.txt, public/privacy.html, public/delete-account.html -Destination dist -Force; Copy-Item -Path public/privacy.html -Destination dist/privacy-policy.html -Force\"",
     "deploy": "npm run build && npx firebase deploy",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
