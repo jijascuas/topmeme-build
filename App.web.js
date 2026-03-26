@@ -460,7 +460,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
   );
 };
 
-const UploadModal = ({ visible, onClose, user, category, nickname: propNickname }) => {
+const UploadModal = ({ visible, onClose, user, category, nickname: propNickname, isLight }) => {
   const [uploading, setUploading] = useState(false);
   const [imageUri, setImageUri] = useState(null);
   const [imageBase64, setImageBase64] = useState(null);
@@ -1286,6 +1286,7 @@ export default function App() {
           user={user} 
           category={currentCategory} 
           nickname={nickname}
+          isLight={isLight}
         />
       )}
 
