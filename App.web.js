@@ -588,7 +588,7 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
         publicId, bytes,
         uploadedBy: user.uid, 
         // uploaderEmail: user.email || 'guest', // Email hidden by user request
-        uploaderName: (propNickname || 'Anonymous').trim(),
+        author: (propNickname || 'Anonymous').trim(),
         likes: 0, 
         likedBy: [],
         createdAt: new Date(),
