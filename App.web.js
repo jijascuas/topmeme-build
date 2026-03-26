@@ -655,6 +655,12 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname 
             value={title} onChangeText={setTitle} maxLength={80} editable={!uploading}
           />
 
+          <View style={{ marginBottom: 12, paddingHorizontal: 4 }}>
+            <Text style={{ color: isLight ? '#888' : '#aaa', fontSize: 13 }}>
+              Pubishing as: <Text style={{ fontWeight: 'bold', color: '#3897f0' }}>{propNickname || 'Anonymous'}</Text>
+            </Text>
+          </View>
+
 
           <TouchableOpacity style={styles.pickBtn} onPress={pickImage} disabled={uploading}>
             <Text style={styles.pickBtnText}>{imageUri ? '🖼️ Change image' : '🖼️ Select image'}</Text>
@@ -1173,7 +1179,22 @@ export default function App() {
   const [showUpload, setShowUpload]       = useState(false);
   const [isLight, setIsLight]             = useState(false);
   const [showAuth, setShowAuth]           = useState(false);
-  const [nickname, setNickname]           = useState('Anonymous');
+  const [nickname, setNickname]           = useState(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return localStorage.getItem('topmeme_nickname') || 'Anonymous';
+      }
+    } catch(e) {}
+    return 'Anonymous';
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('topmeme_nickname', nickname);
+      }
+    } catch(e) {}
+  }, [nickname]);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
