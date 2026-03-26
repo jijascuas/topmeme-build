@@ -299,6 +299,8 @@ const AuthScreen = ({ onClose }) => {
 const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLoginRequest, nickname, setNickname }) => {
   const isGuest = user?.isAnonymous || !user;
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
+  const [tempNickname, setTempNickname] = useState(nickname);
 
 
   return (
@@ -316,18 +318,63 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
             style={styles.nicknameDisplayBtn} 
             activeOpacity={0.7}
             onPress={() => {
-              const msg = 'Enter your new nickname:';
-              if (Platform.OS === 'web') {
-                const newNick = window.prompt(msg, nickname);
-                if (newNick !== null && newNick.trim()) setNickname(newNick.trim());
-              } else {
-                safeAlert('Edit Nickname', 'On mobile, use the desktop version to change your nickname or stay Anonymous for now.');
-              }
+              setTempNickname(nickname);
+              setShowNicknameModal(true);
             }}
           >
             <Text style={styles.nicknameDisplayText}>👤 {nickname} (Edit)</Text>
           </TouchableOpacity>
         )}
+
+        <Modal visible={showNicknameModal} transparent animationType="slide">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <View style={{ backgroundColor: isLight ? '#fff' : '#1e1e2e', borderRadius: 16, padding: 24, width: '100%', maxWidth: 320, borderWidth: 1, borderColor: isLight ? '#ddd' : '#333' }}>
+              <Text style={{ color: isLight ? '#111' : '#fff', fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>Enter your new nickname:</Text>
+              <Text style={{ color: isLight ? '#666' : '#888', fontSize: 12, marginBottom: 16 }}>This name will be displayed on your memes.</Text>
+              
+              <TextInput
+                style={{
+                  backgroundColor: isLight ? '#f9f9f9' : '#111',
+                  color: isLight ? '#111' : '#fff',
+                  borderRadius: 10,
+                  padding: 12,
+                  fontSize: 16,
+                  borderWidth: 1,
+                  borderColor: isLight ? '#ddd' : '#444',
+                  marginBottom: 20
+                }}
+                value={tempNickname}
+                onChangeText={setTempNickname}
+                autoFocus
+                maxLength={20}
+                placeholder="Type nickname..."
+                placeholderTextColor="#555"
+              />
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity 
+                  onPress={() => setShowNicknameModal(false)}
+                  style={{ flex: 1, padding: 12, borderRadius: 10, alignItems: 'center', backgroundColor: isLight ? '#eee' : '#222' }}
+                >
+                  <Text style={{ color: isLight ? '#555' : '#aaa', fontWeight: 'bold' }}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  onPress={() => {
+                    const trimmed = tempNickname.trim();
+                    if (trimmed) {
+                      setNickname(trimmed);
+                      setShowNicknameModal(false);
+                    }
+                  }}
+                  style={{ flex: 1, padding: 12, borderRadius: 10, alignItems: 'center', backgroundColor: '#3897f0' }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
       {categories.map(cat => (
         <TouchableOpacity
