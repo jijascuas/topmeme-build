@@ -17,7 +17,7 @@
     ],
     "android": {
       "package": "com.jijascuas.topmeme",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": ["com.google.android.gms.permission.AD_ID"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
