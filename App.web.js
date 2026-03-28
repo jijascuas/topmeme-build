@@ -33,10 +33,22 @@ const CLEANUP_BATCH             = 10;
 
 /**
  * Obtiene un Blob listo para subir.
- * - En web (browser): usa canvas ÔåÆ JPEG 85 % para comprimir y garantizar compatibilidad.
+ * - Si hay base64: lo convierte directamente a Blob (más fiable en APK/WebView).
+ * - En web (browser): usa canvas para comprimir y garantizar compatibilidad.
  * - En nativo (Expo Go / React Native): fetch directo del blob URI.
  */
-const getBlobForUpload = async (imageUri) => {
+const getBlobForUpload = async (imageUri, base64Data) => {
+  // 1. Si tenemos base64, lo usamos directamente para evitar problemas de permisos de archivo
+  if (base64Data) {
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: 'image/jpeg' });
+  }
+
   if (typeof document !== 'undefined') {
     // ── WEB ──────────────────────────────────────────────────────────────────
     return new Promise((resolve, reject) => {
@@ -49,13 +61,15 @@ const getBlobForUpload = async (imageUri) => {
         if (h > MAX_PX) { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
         const canvas = document.createElement('canvas');
         canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('No se pudo obtener el contexto del canvas'));
+        ctx.drawImage(img, 0, 0, w, h);
         canvas.toBlob(
           blob => blob ? resolve(blob) : reject(new Error('canvas toBlob falló')),
           'image/jpeg', 0.85
         );
       };
-      img.onerror = () => reject(new Error('No se pudo cargar la imagen en el canvas'));
+      img.onerror = () => reject(new Error('No se pudo cargar la imagen en el canvas (URI inaccesible)'));
       img.src = imageUri;
     });
   }
@@ -66,12 +80,12 @@ const getBlobForUpload = async (imageUri) => {
 };
 
 /** Sube imagen a Cloudinary. Acepta una AbortSignal para cancelación y un callback onProgress. */
-const uploadToCloudinary = (imageUri, signal, onProgress) => {
+const uploadToCloudinary = (imageUri, base64Data, signal, onProgress) => {
   return new Promise(async (resolve, reject) => {
-    // 1. Obtener blob (con compresión en web)
+    // 1. Obtener blob (priorizando base64 para evitar errores de URI en WebView)
     let blob;
     try {
-      blob = await getBlobForUpload(imageUri);
+      blob = await getBlobForUpload(imageUri, base64Data);
     } catch (e) {
       return reject({ title: 'Error al procesar la imagen', reason: e.message, suggestion: 'Prueba con otra imagen.' });
     }
@@ -195,7 +209,15 @@ const analyzeImageWithAI = async (base64String) => {
 // ── Constants & Helpers ───────────────────────────────────────────────────────
 const categories = ['Day', 'Week', 'Month', 'Year', 'My Memes'];
 
+let globalShowToast = null;
+
 const safeAlert = (title, message) => {
+  if (title === 'Success' || title === 'Promotion' || title === 'Meme uploaded') {
+    if (globalShowToast) {
+       globalShowToast(`${title}\n\n${message}`);
+       return;
+    }
+  }
   if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
   else Alert.alert(title, message);
 };
@@ -560,7 +582,8 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
 
       // 3. Subida a Cloudinary
       const { url, bytes, publicId } = await uploadToCloudinary(
-        imageUri, 
+        imageUri,
+        imageBase64,
         abortRef.current.signal, 
         (p) => setUploadProgress(p)
       );
@@ -671,7 +694,7 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
           {imageUri && (
             <View style={styles.previewWrap}>
               <Image
-                source={{ uri: imageUri }}
+                source={{ uri: imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : imageUri }}
                 style={styles.previewImage}
                 resizeMode="contain"
                 onLoad={() => setPreviewReady(true)}
@@ -1238,6 +1261,19 @@ export default function App() {
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
+  const [toast, setToast] = useState(null);
+  const toastTimeout = useRef(null);
+
+  const showToast = (msg) => {
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    setToast(msg);
+    toastTimeout.current = setTimeout(() => setToast(null), 5000);
+  };
+
+  useEffect(() => {
+    globalShowToast = showToast;
+    return () => { globalShowToast = null; };
+  }, []);
 
   // Sync sidebar visibility with window resize
   useEffect(() => {
@@ -1319,6 +1355,23 @@ export default function App() {
 
   return (
     <SafeAreaView style={[styles.container, isLight && { backgroundColor: '#f0f2f5' }]}>
+      {/* Toast Notification Notification without Prefix */}
+      {toast && (
+        <View 
+          style={{
+            position: 'absolute', top: 40, left: '50%', marginLeft: -160,
+            width: 320, backgroundColor: '#3897f0', borderRadius: 16, padding: 20,
+            zIndex: 10000, elevation: 12, shadowColor: '#000', shadowOffset: {width: 0, height: 6},
+            shadowOpacity: 0.4, shadowRadius: 8, alignItems: 'center', justifyContent: 'center',
+            borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)'
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>{toast}</Text>
+          <TouchableOpacity onPress={() => setToast(null)} style={{ position: 'absolute', top: 8, right: 12 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={styles.appContainer}>
         {sidebarVisible && (
           <View style={[
