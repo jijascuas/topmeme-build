@@ -1015,7 +1015,8 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
 
     // Fallback: Twitter/X intent
     if (Platform.OS === 'web') {
-       const text = encodeURIComponent(`${shareData.text}\n`);
+       const memeImg = meme.imageUrl || meme.url;
+       const text = encodeURIComponent(`Like this meme so it appears at the top of the ranking! "${meme.title || ''}"\n\n${memeImg}\n`);
        const link = encodeURIComponent(shareData.url);
        const intentUrl = `https://twitter.com/intent/tweet?text=${text}&url=${link}`;
        window.open(intentUrl, '_blank');
@@ -1274,6 +1275,34 @@ export default function App() {
       unsubAuth();
     };
   }, []);
+
+  // ── SEO & Previews (Client-side) ─────────────────────────
+  useEffect(() => {
+    if (selectedMeme && typeof document !== 'undefined') {
+      const title = `Topmeme - "${selectedMeme.title || 'Meme'}"`;
+      const img = selectedMeme.imageUrl || selectedMeme.url;
+      document.title = title;
+      
+      // Attempt to update meta tags (useful for some crawlers like Discord/Facebook)
+      const updateMeta = (prop, val) => {
+        let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
+        if (el) el.setAttribute('content', val);
+      };
+      updateMeta('og:title', title);
+      updateMeta('og:image', img);
+      updateMeta('twitter:title', title);
+      updateMeta('twitter:image', img);
+    } else if (typeof document !== 'undefined') {
+      document.title = 'Topmeme';
+      // Reset to defaults
+      const updateMeta = (prop, val) => {
+        let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
+        if (el) el.setAttribute('content', val);
+      };
+      updateMeta('og:title', 'Topmeme');
+      updateMeta('og:image', 'https://topmeme-jijascuas.web.app/logo.png');
+    }
+  }, [selectedMeme]);
 
   const handleLogout = async () => { 
     await signOut(auth).catch(console.error); 
