@@ -210,15 +210,14 @@ const analyzeImageWithAI = async (base64String) => {
 const categories = ['Day', 'Week', 'Month', 'Year', 'My Memes'];
 
 let globalShowToast = null;
+let globalShowConfirm = null;
 
 const safeAlert = (title, message) => {
-  if (title === 'Success' || title === 'Promotion' || title === 'Meme uploaded') {
-    if (globalShowToast) {
-       globalShowToast(`${title}\n\n${message}`);
-       return;
-    }
+  if (globalShowToast) {
+    globalShowToast(`${title}: ${message}`);
+    return;
   }
-  if (Platform.OS === 'web') window.alert(`${title}\n\n${message}`);
+  if (Platform.OS === 'web') window.alert(`${title}: ${message}`);
   else Alert.alert(title, message);
 };
 
@@ -941,16 +940,12 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
       }
     }
 
-    // Confirmation popups
-    const title = 'Confirm';
-    const msg = isLiked ? 'Are you sure you want to remove your Like?' : 'Do you want to Like this meme?';
-
+    // Confirmed action: Like is now direct, Delete and others use custom modal
     if (Platform.OS === 'web') {
-      const confirmed = window.confirm(msg);
-      if (!confirmed) return;
       executeToggleLike(meme, isLiked);
     } else {
-      Alert.alert(title, msg, [
+      const msg = isLiked ? 'Are you sure you want to remove your Like?' : 'Do you want to Like this meme?';
+      Alert.alert('Confirm', msg, [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Yes', style: isLiked ? 'destructive' : 'default', onPress: () => executeToggleLike(meme, isLiked) }
       ]);
@@ -1060,13 +1055,20 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
     if (user?.uid !== meme.uploadedBy) return;
     
     if (Platform.OS === 'web') {
-      const confirmed = window.confirm('Erase Meme: Are you sure you want to permanently delete this meme?');
-      if (confirmed) {
-         try {
-           await deleteDoc(doc(db, 'memes', meme.id));
-           setSelectedMeme(null);
-           alert('Meme deleted successfully!');
-         } catch (e) { alert(e.message); }
+      if (globalShowConfirm) {
+        globalShowConfirm({
+          title: 'Erase Meme',
+          message: 'Are you sure you want to permanently delete this meme?',
+          isDestructive: true,
+          confirmText: 'Delete',
+          onConfirm: async () => {
+             try {
+               await deleteDoc(doc(db, 'memes', meme.id));
+               setSelectedMeme(null);
+               if (globalShowToast) globalShowToast('Meme deleted successfully!');
+             } catch (e) { safeAlert('Error', e.message); }
+          }
+        });
       }
       return;
     }
@@ -1263,6 +1265,7 @@ export default function App() {
   const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
   const [toast, setToast] = useState(null);
   const toastTimeout = useRef(null);
+  const [confirmData, setConfirmData] = useState(null); // { title, message, onConfirm, isDestructive }
 
   const showToast = (msg) => {
     if (toastTimeout.current) clearTimeout(toastTimeout.current);
@@ -1272,7 +1275,11 @@ export default function App() {
 
   useEffect(() => {
     globalShowToast = showToast;
-    return () => { globalShowToast = null; };
+    globalShowConfirm = setConfirmData;
+    return () => { 
+      globalShowToast = null; 
+      globalShowConfirm = null;
+    };
   }, []);
 
   // Sync sidebar visibility with window resize
@@ -1355,6 +1362,35 @@ export default function App() {
 
   return (
     <SafeAreaView style={[styles.container, isLight && { backgroundColor: '#f0f2f5' }]}>
+      {/* Confirmation Modal without Prefix */}
+      {confirmData && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.uploadModal, { maxWidth: 320, padding: 24 }]}>
+               <Text style={[styles.uploadModalTitle, { textAlign: 'center' }]}>{confirmData.title}</Text>
+               <Text style={{ color: '#aaa', textAlign: 'center', marginTop: 12, marginBottom: 24, fontSize: 14 }}>{confirmData.message}</Text>
+               <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity 
+                    style={[styles.cancelBtn, { flex: 1 }]} 
+                    onPress={() => setConfirmData(null)}
+                  >
+                    <Text style={styles.cancelBtnText}>No</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.uploadBtn, { flex: 1, backgroundColor: confirmData.isDestructive ? '#f44' : '#3897f0', borderRadius: 10 }]} 
+                    onPress={() => {
+                      confirmData.onConfirm();
+                      setConfirmData(null);
+                    }}
+                  >
+                    <Text style={styles.uploadText}>{confirmData.confirmText || 'Yes'}</Text>
+                  </TouchableOpacity>
+               </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
       {/* Toast Notification Notification without Prefix */}
       {toast && (
         <View 
