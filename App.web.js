@@ -21,6 +21,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 const auth = getAuth(app);
+const WEB_URL = 'https://topmeme-jijascuas.web.app/';
 
 // ------------------- Cloudinary config & storage limits -------------------
 const CLOUDINARY_CLOUD_NAME   = 'dg8tmvhzn';
@@ -433,7 +434,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
         </TouchableOpacity>
       ) : (
         <TouchableOpacity style={styles.uploadBtn} onPress={onUpload}>
-          <Text style={styles.uploadText}>+ Upload meme</Text>
+          <Text style={styles.uploadText}>+ Upload Meme</Text>
         </TouchableOpacity>
       )}
 
@@ -780,11 +781,45 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
   );
 };
 
+// ── Upload Selection Modal ────────────────────────────────────────────────────
+const UploadSelectionModal = ({ visible, onClose, onSelect, isLight }) => {
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.uploadModal, { maxWidth: 360, backgroundColor: isLight ? '#fff' : '#111' }]}>
+          <TouchableOpacity onPress={onClose} style={{ position: 'absolute', top: 15, right: 15, zIndex: 10 }}>
+            <Text style={{ color: isLight ? '#000' : '#888', fontSize: 20 }}>✕</Text>
+          </TouchableOpacity>
+          
+          <Text style={[styles.uploadModalTitle, { textAlign: 'center', marginBottom: 20, color: isLight ? '#000' : '#fff' }]}>
+            How do you want to upload?
+          </Text>
+          
+          <TouchableOpacity 
+            style={[styles.uploadBtn, { marginBottom: 15, paddingVertical: 18, backgroundColor: '#3897f0' }]} 
+            onPress={() => onSelect('general')}
+          >
+            <Text style={[styles.uploadText, { fontSize: 17, marginBottom: 4 }]}>🏆 Meme Ranking</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>Contribute to the global leaderboard</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.uploadBtn, { backgroundColor: '#ffd700', paddingVertical: 18, borderWidth: 1, borderColor: '#554400' }]} 
+            onPress={() => onSelect('PROMOTION')}
+          >
+            <Text style={[styles.uploadText, { fontSize: 17, color: '#000', marginBottom: 4 }]}>🌟 PROMOTION</Text>
+            <Text style={{ color: 'rgba(0,0,0,0.6)', fontSize: 11, fontWeight: 'bold' }}>Pay $10 or use a Gift Code to be featured</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 // ── Meme Screen ÔÇö feed estilo Instagram ──────────────────────────────────────
-const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onToggleSidebar }) => {
+const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onToggleSidebar, selectedMeme, setSelectedMeme }) => {
   const [memes, setMemes]               = useState([]);
   const [loading, setLoading]           = useState(true);
-  const [selectedMeme, setSelectedMeme] = useState(null);
   const [likingId, setLikingId]         = useState(null);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -949,10 +984,11 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
   };
 
   const shareMeme = async (meme) => {
+    const deepLink = `${WEB_URL}?meme=${meme.id}`;
     const shareData = {
       title: 'Topmeme',
       text: `🤣 Look at this Top Meme: "${meme.title}"`,
-      url: meme.imageUrl || meme.url
+      url: deepLink
     };
 
     // 1. Try React Native WebView Bridge (for the APK)
@@ -986,8 +1022,8 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
     } else {
       try {
         await Share.share({
-          message: `${shareData.text}\n${shareData.url}`,
-          url: shareData.url, 
+          message: `${shareData.text}\n${deepLink}`,
+          url: deepLink, 
           title: 'Topmeme'
         });
       } catch (error) {
@@ -1147,7 +1183,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#1da1f2' }]} 
                     onPress={() => {
                       const text = encodeURIComponent(`🤣 Look at this Top Meme: "${selectedMeme.title}"\n`);
-                      const link = encodeURIComponent(selectedMeme.imageUrl || selectedMeme.url);
+                      const link = encodeURIComponent(`${WEB_URL}?meme=${selectedMeme.id}`);
                       window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
                     }}
                   >
@@ -1177,6 +1213,9 @@ export default function App() {
   const [authLoading, setAuthLoading]     = useState(true);
   const [currentCategory, setCurrentCategory] = useState('Day');
   const [showUpload, setShowUpload]       = useState(false);
+  const [showUploadSelection, setShowUploadSelection] = useState(false);
+  const [uploadTargetCategory, setUploadTargetCategory] = useState('general');
+  const [selectedMeme, setSelectedMeme]   = useState(null);
   const [isLight, setIsLight]             = useState(false);
   const [showAuth, setShowAuth]           = useState(false);
   const [nickname, setNickname]           = useState(() => {
@@ -1203,6 +1242,20 @@ export default function App() {
   useEffect(() => {
      if (!isMobile) setSidebarVisible(true);
   }, [isMobile]);
+
+  // Deep linking: load meme from URL param (?meme=DOC_ID)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const memeId = params.get('meme');
+    if (memeId) {
+      const memeRef = doc(db, 'memes', memeId);
+      getDoc(memeRef).then(snap => {
+        if (snap.exists()) {
+          setSelectedMeme({ id: snap.id, ...snap.data() });
+        }
+      }).catch(console.error);
+    }
+  }, []);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, u => { 
@@ -1250,7 +1303,7 @@ export default function App() {
                 if (isMobile) setSidebarVisible(false);
               }}
               user={user}
-              onUpload={() => setShowUpload(true)}
+              onUpload={() => setShowUploadSelection(true)}
               onLogout={handleLogout}
               isLight={isLight}
               onLoginRequest={() => setShowAuth(true)}
@@ -1273,18 +1326,33 @@ export default function App() {
           isLight={isLight} 
           onLoginRequest={() => setShowAuth(true)} 
           onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
+          selectedMeme={selectedMeme}
+          setSelectedMeme={setSelectedMeme}
           onLikeAction={() => {
             // No action needed for web version (ad-free)
           }}
         />
       </View>
 
+      {showUploadSelection && (
+        <UploadSelectionModal 
+           visible={showUploadSelection} 
+           onClose={() => setShowUploadSelection(false)} 
+           isLight={isLight}
+           onSelect={(mode) => {
+             setUploadTargetCategory(mode);
+             setShowUploadSelection(false);
+             setShowUpload(true);
+           }}
+        />
+      )}
+
       {showUpload && (
         <UploadModal 
           visible={showUpload} 
           onClose={() => setShowUpload(false)} 
           user={user} 
-          category={currentCategory} 
+          category={uploadTargetCategory} 
           nickname={nickname}
           isLight={isLight}
         />
