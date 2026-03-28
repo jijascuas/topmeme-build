@@ -987,7 +987,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
     const deepLink = `${WEB_URL}?meme=${meme.id}`;
     const shareData = {
       title: 'Topmeme',
-      text: `🤣 Look at this Top Meme: "${meme.title}"`,
+      text: `Like this meme so it appears at the top of the ranking!: "${meme.title}"`,
       url: deepLink
     };
 
@@ -1182,7 +1182,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
                   <TouchableOpacity 
                     style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#1da1f2' }]} 
                     onPress={() => {
-                      const text = encodeURIComponent(`🤣 Look at this Top Meme: "${selectedMeme.title}"\n`);
+                      const text = encodeURIComponent(`Like this meme so it appears at the top of the ranking!: "${selectedMeme.title}"\n`);
                       const link = encodeURIComponent(`${WEB_URL}?meme=${selectedMeme.id}`);
                       window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
                     }}
