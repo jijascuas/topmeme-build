@@ -933,8 +933,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
         if (timeElapsed < 60000) { // 1 minute in milliseconds
           const secondsLeft = Math.ceil((60000 - timeElapsed) / 1000);
           const msg = `⏳ Please wait ${secondsLeft} seconds before canceling your vote.`;
-          if (Platform.OS === 'web') alert(msg);
-          else Alert.alert('Too Fast', msg);
+          safeAlert('Too Fast', msg);
           return;
         }
       }
@@ -995,8 +994,7 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
       if (onLikeAction) onLikeAction();
       
     } catch (e) {
-      if (Platform.OS === 'web') alert(e.message);
-      else Alert.alert('Error', e.message);
+      safeAlert('Error', e.message);
     }
     setLikingId(null);
   };
