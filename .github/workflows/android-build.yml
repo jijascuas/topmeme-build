@@ -47,8 +47,8 @@ jobs:
             git push || true
           fi
 
-      - name: 🏗️ Expo Prebuild (Generate Android Folder)
-        run: npx expo prebuild --platform android --no-install --clean
+      - name: 🔐 Give Execute Permissions to Gradlew
+        run: chmod +x android/gradlew
 
       - name: ⚙️ Build Android APK & AAB
         run: |
