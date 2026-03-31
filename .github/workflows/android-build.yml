@@ -19,7 +19,7 @@ jobs:
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: ☕ Setup JDK 17
@@ -32,32 +32,14 @@ jobs:
       - name: 🛠️ Install dependencies
         run: npm install
 
-      - name: 🔑 Setup Persistent Keystore
-        run: |
-          if [ ! -f topmeme.keystore ]; then
-            keytool -genkey -v -keystore topmeme.keystore -alias topmeme-alias -keyalg RSA -keysize 2048 -validity 10000 -storepass topmeme123 -keypass topmeme123 -dname "CN=Topmeme, OU=Build, O=Jijascuas, L=Unknown, S=Unknown, C=ES" -noprompt
-            
-            git config --global user.name "GitHub Actions"
-            git config --global user.email "actions@github.com"
-            git add topmeme.keystore
-            git commit -m "Auto-generate persistent keystore for Topmeme" || true
-            git push || true
-          fi
-
       - name: 🔐 Give Execute Permissions to Gradlew
         run: chmod +x android/gradlew
 
       - name: ⚙️ Build Android APK & AAB
         run: |
           cd android
-          chmod +x gradlew
-          # Run both builds in one command to share intermediate outputs and ensure signing
-          ./gradlew assembleRelease bundleRelease \
-            -PMYAPP_RELEASE_STORE_FILE=${{ github.workspace }}/topmeme.keystore \
-            -PMYAPP_RELEASE_STORE_PASSWORD=topmeme123 \
-            -PMYAPP_RELEASE_KEY_ALIAS=topmeme-alias \
-            -PMYAPP_RELEASE_KEY_PASSWORD=topmeme123 \
-            --no-daemon --stacktrace --info
+          # Desactivamos el daemon para que no consuma memoria extra
+          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
 
       - name: 🔍 List Android Build Outputs (Debug)
         run: |
