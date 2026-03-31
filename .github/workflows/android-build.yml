@@ -12,9 +12,6 @@ jobs:
     permissions:
       contents: write
       
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      
     steps:
       - name: 📦 Checkout Repo
         uses: actions/checkout@v4
@@ -22,13 +19,13 @@ jobs:
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
 
       - name: ☕ Setup JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '18'
+          java-version: '17'
           distribution: 'zulu'
           cache: 'gradle'
 
