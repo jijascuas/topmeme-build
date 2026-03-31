@@ -324,7 +324,6 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [tempNickname, setTempNickname] = useState(nickname);
 
-
   return (
     <View style={styles.sidebar}>
       <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }}>
@@ -419,7 +418,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
       </TouchableOpacity>
 
       <TouchableOpacity
-        onPress={() => Linking.openURL('https://ko-fi.com/jijascuas')}
+        onPress={() => onSelect('DONATION')}
         style={[styles.menuItem, styles.donationMenuBtn]}
       >
         <Text style={[styles.menuText, { color: '#4caf50', fontWeight: 'bold' }]}>
@@ -460,7 +459,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
       )}
 
       {!isGuest && (
-        <TouchableOpacity style={[styles.logoutBtn, isLight && { backgroundColor: '#ffe5e5', borderColor: '#ffcccc' }]} onPress={onLogout}>
+        <TouchableOpacity style={[styles.logoutBtn, isLight && { backgroundColor: '#ffe5e5', borderColor: '#ffcccc' }]} onPress={handleLogout}>
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
       )}
@@ -481,6 +480,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
     </View>
   );
 };
+
 
 const UploadModal = ({ visible, onClose, user, category, nickname: propNickname, isLight }) => {
   const [uploading, setUploading] = useState(false);
@@ -619,15 +619,26 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
       });
 
       if (requiresStripePayment) {
-        const stripeUrl = `https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`;
-        if (Platform.OS === 'web') {
-          // Direct redirection on web to avoid popup blockers
-          window.location.href = stripeUrl;
-          return; // The page will change, no need for more logic here
+        if (typeof window !== 'undefined' && window.ReactNativeWebView && window.IS_TOPMEME_APK) {
+           // APK Native Billing Trigger
+           window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'PURCHASE',
+              productId: 'promotion_10usd',
+              docId: docRef.id
+           }));
+           setPaymentProcessing(false);
+           safeAlert('Promotion', 'Meme uploaded. Complete the payment in the pop-up to activate it.');
         } else {
-          Linking.openURL(stripeUrl);
-          setPaymentProcessing(false);
-          safeAlert('Promotion', 'Meme uploaded. Waiting for payment to activate it in the ranking.');
+          // Standard Stripe fallback for Web
+          const stripeUrl = `https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`;
+          if (Platform.OS === 'web') {
+            window.location.href = stripeUrl;
+            return;
+          } else {
+            Linking.openURL(stripeUrl);
+            setPaymentProcessing(false);
+            safeAlert('Promotion', 'Meme uploaded. Waiting for payment to activate it in the ranking.');
+          }
         }
       } else {
         safeAlert('Success', 'Meme published successfully!');
@@ -838,12 +849,75 @@ const UploadSelectionModal = ({ visible, onClose, onSelect, isLight }) => {
   );
 };
 
+// ── Donation Modal ──────────────────────────────────────────────────────────
+const DonationModal = ({ visible, onClose, isLight }) => {
+  const donationOptions = [
+    { id: 'donate_1', label: '$1 - Coffee', value: 1, icon: '☕' },
+    { id: 'donate_5', label: '$5 - Pizza', value: 5, icon: '🍕' },
+    { id: 'donate_10', label: '$10 - Full Support', value: 10, icon: '🚀' },
+  ];
+
+  const handleDonate = (sku) => {
+    if (typeof window !== 'undefined' && window.ReactNativeWebView && window.IS_TOPMEME_APK) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'PURCHASE',
+        productId: sku
+      }));
+      onClose();
+      safeAlert('Donation', 'Opening billing window...');
+    } else {
+      // Web fallback
+      Linking.openURL('https://ko-fi.com/jijascuas');
+      onClose();
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={[styles.uploadModal, { maxWidth: 340, backgroundColor: isLight ? '#fff' : '#111' }]}>
+          <TouchableOpacity onPress={onClose} style={{ position: 'absolute', top: 15, right: 15, zIndex: 10 }}>
+            <Text style={{ color: isLight ? '#000' : '#888', fontSize: 20 }}>✕</Text>
+          </TouchableOpacity>
+          
+          <Text style={[styles.uploadModalTitle, { textAlign: 'center', marginBottom: 8, color: isLight ? '#000' : '#fff' }]}>
+            Support Topmeme
+          </Text>
+          <Text style={{ color: '#888', textAlign: 'center', fontSize: 13, marginBottom: 20 }}>
+            Select an amount to help keep the servers running.
+          </Text>
+          
+          {donationOptions.map(opt => (
+            <TouchableOpacity 
+              key={opt.id}
+              style={[styles.uploadBtn, { marginBottom: 10, paddingVertical: 14, backgroundColor: isLight ? '#f9f9f9' : '#1a1a1a', borderWidth: 1, borderColor: isLight ? '#ddd' : '#333' }]} 
+              onPress={() => handleDonate(opt.id)}
+            >
+              <Text style={{ color: isLight ? '#000' : '#fff', fontSize: 16, fontWeight: 'bold' }}>{opt.icon} {opt.label}</Text>
+            </TouchableOpacity>
+          ))}
+
+          <TouchableOpacity 
+            style={{ marginTop: 10, alignSelf: 'center' }}
+            onPress={() => Linking.openURL('https://ko-fi.com/jijascuas')}
+          >
+            <Text style={{ color: '#4caf50', fontSize: 12, textDecorationLine: 'underline' }}>Other ways to support (Ko-fi)</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+
+
 // ── Meme Screen ÔÇö feed estilo Instagram ──────────────────────────────────────
 const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onToggleSidebar, selectedMeme, setSelectedMeme }) => {
   const [memes, setMemes]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [likingId, setLikingId]         = useState(null);
   const { width } = useWindowDimensions();
+  const numCols = width < 600 ? 3 : (width < 1024 ? 5 : 7);
   const isMobile = width < 768;
 
   useEffect(() => {
@@ -1091,7 +1165,14 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
   );
 
   const renderItem = ({ item: m }) => (
-    <TouchableOpacity style={[styles.gridCell, isLight && { backgroundColor: '#fff', borderColor: '#e0e0e0' }]} onPress={() => setSelectedMeme(m)}>
+    <TouchableOpacity 
+      style={[
+        styles.gridCell, 
+        { maxWidth: `${(100 / numCols).toFixed(2)}%` },
+        isLight && { backgroundColor: '#fff', borderColor: '#e0e0e0' }
+      ]} 
+      onPress={() => setSelectedMeme(m)}
+    >
       <Image source={{ uri: m.imageUrl || m.url }} style={styles.gridThumb} resizeMode="cover" />
       {(m.category === 'PROMOTION' || m.category === 'PROMOCION') && (
         <View style={[styles.vipBadgeSmall, !m.approved && { backgroundColor: '#ff4d6d' }, { position: 'absolute', top: 5, right: 5, width: 34, height: 34, borderRadius: 17, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }]}>
@@ -1144,10 +1225,10 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
         <FlatList 
           data={memes} 
           keyExtractor={m => m.id} 
-          numColumns={isMobile ? 2 : 3}
+          numColumns={numCols}
           columnWrapperStyle={styles.gridRow}
           renderItem={renderItem}
-          key={isMobile ? '2col' : '3col'}
+          key={`grid-${numCols}`}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -1239,6 +1320,7 @@ export default function App() {
   const [showUpload, setShowUpload]       = useState(false);
   const [showUploadSelection, setShowUploadSelection] = useState(false);
   const [uploadTargetCategory, setUploadTargetCategory] = useState('general');
+  const [showDonation, setShowDonation]   = useState(false);
   const [selectedMeme, setSelectedMeme]   = useState(null);
   const [isLight, setIsLight]             = useState(false);
   const [showAuth, setShowAuth]           = useState(false);
@@ -1251,13 +1333,6 @@ export default function App() {
     return 'Anonymous';
   });
 
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('topmeme_nickname', nickname);
-      }
-    } catch(e) {}
-  }, [nickname]);
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
   const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
@@ -1277,6 +1352,41 @@ export default function App() {
     return () => { 
       globalShowToast = null; 
       globalShowConfirm = null;
+    };
+  }, []);
+
+  // --- Purchase Event Listener from Native ---
+  useEffect(() => {
+    const handleNativeMessage = (event) => {
+      try {
+        const data = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
+        if (data.type === 'PURCHASE_SUCCESS') {
+           if (data.productId === 'promotion_10usd' && data.docId) {
+             // Auto-approve the meme in Firestore
+             const memeRef = doc(db, 'memes', data.docId);
+             updateDoc(memeRef, { approved: true }).then(() => {
+                showToast('🌟 Promotion activated! Your meme is now public.');
+             }).catch(err => {
+                console.error("Error approving meme:", err);
+                showToast('Payment successful! Approval pending...');
+             });
+           } else {
+             showToast('❤️ Thank you so much for your donation!');
+           }
+        } else if (data.type === 'PURCHASE_ERROR') {
+          showToast(`❌ Purchase failed: ${data.message}`);
+        }
+      } catch (e) {}
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('message', handleNativeMessage);
+      // For some Webview versions it's document
+      document.addEventListener('message', handleNativeMessage);
+    }
+    return () => {
+      window.removeEventListener('message', handleNativeMessage);
+      document.removeEventListener('message', handleNativeMessage);
     };
   }, []);
 
@@ -1317,6 +1427,14 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('topmeme_nickname', nickname);
+      }
+    } catch(e) {}
+  }, [nickname]);
+
   // ── SEO & Previews (Client-side) ─────────────────────────
   useEffect(() => {
     if (selectedMeme && typeof document !== 'undefined') {
@@ -1324,7 +1442,6 @@ export default function App() {
       const img = selectedMeme.imageUrl || selectedMeme.url;
       document.title = title;
       
-      // Attempt to update meta tags (useful for some crawlers like Discord/Facebook)
       const updateMeta = (prop, val) => {
         let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
         if (el) el.setAttribute('content', val);
@@ -1335,7 +1452,6 @@ export default function App() {
       updateMeta('twitter:image', img);
     } else if (typeof document !== 'undefined') {
       document.title = 'Topmeme';
-      // Reset to defaults
       const updateMeta = (prop, val) => {
         let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
         if (el) el.setAttribute('content', val);
@@ -1347,6 +1463,8 @@ export default function App() {
 
   const handleLogout = async () => { 
     await signOut(auth).catch(console.error); 
+    setSidebarVisible(false);
+    setCurrentCategory('Day');
   };
 
   if (authLoading) return (
@@ -1360,7 +1478,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={[styles.container, isLight && { backgroundColor: '#f0f2f5' }]}>
-      {/* Confirmation Modal without Prefix */}
+      {/* Confirmation Modal */}
       {confirmData && (
         <Modal visible={true} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -1389,7 +1507,7 @@ export default function App() {
         </Modal>
       )}
 
-      {/* Toast Notification Notification without Prefix */}
+      {/* Toast Notification */}
       {toast && (
         <View 
           style={{
@@ -1406,6 +1524,7 @@ export default function App() {
           </TouchableOpacity>
         </View>
       )}
+
       <View style={styles.appContainer}>
         {sidebarVisible && (
           <View style={[
@@ -1415,7 +1534,11 @@ export default function App() {
             <Sidebar
               current={currentCategory}
               onSelect={(cat) => {
-                setCurrentCategory(cat);
+                if (cat === 'DONATION') {
+                  setShowDonation(true);
+                } else {
+                  setCurrentCategory(cat);
+                }
                 if (isMobile) setSidebarVisible(false);
               }}
               user={user}
@@ -1445,7 +1568,7 @@ export default function App() {
           selectedMeme={selectedMeme}
           setSelectedMeme={setSelectedMeme}
           onLikeAction={() => {
-            // No action needed for web version (ad-free)
+            // Unused hook for web version
           }}
         />
       </View>
@@ -1474,7 +1597,17 @@ export default function App() {
         />
       )}
 
+      {showDonation && (
+        <DonationModal
+          visible={showDonation}
+          onClose={() => setShowDonation(false)}
+          isLight={isLight}
+        />
+      )}
 
+      {showAuth && (
+        <AuthScreen onClose={() => setShowAuth(false)} />
+      )}
     </SafeAreaView>
   );
 }
@@ -1535,7 +1668,7 @@ const styles = StyleSheet.create({
   disclaimerText:{ fontSize: 11, color: '#aaa', fontStyle: 'italic', marginBottom: 12 },
   emptyText:   { fontSize: 28, color: '#333', textAlign: 'center' },
   gridRow:     { gap: 8, marginBottom: 8, justifyContent: 'flex-start' },
-  gridCell:    { flex: 1/3, maxWidth: '33%', aspectRatio: 1, position: 'relative', overflow: 'hidden', borderRadius: 8, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
+  gridCell:    { flex: 1, aspectRatio: 1, position: 'relative', overflow: 'hidden', borderRadius: 8, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
   gridThumb:   { width: '100%', height: '100%' },
   gridLikesBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12 },
   gridLikesText:  { color: '#fff', fontSize: 11, fontWeight: '700' },

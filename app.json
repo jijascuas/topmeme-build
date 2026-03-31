@@ -7,7 +7,7 @@
       "android",
       "web"
     ],
-    "version": "1.1.2",
+    "version": "1.2.0",
     "sdkVersion": "55.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -17,13 +17,19 @@
     ],
     "android": {
       "package": "com.jijascuas.topmeme",
-      "versionCode": 6,
-      "permissions": ["com.google.android.gms.permission.AD_ID"],
+      "versionCode": 7,
+      "permissions": [
+        "com.google.android.gms.permission.AD_ID",
+        "com.android.vending.BILLING"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       }
     },
+    "plugins": [
+      "react-native-iap"
+    ],
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
