@@ -3,15 +3,15 @@ name: Build Android APK & AAB
 on:
   push:
     branches: [ "main", "master" ]
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build Android
+    name: Build Android Release
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
+
     steps:
       - name: 📦 Checkout Repo
         uses: actions/checkout@v4
@@ -30,23 +30,40 @@ jobs:
           cache: 'gradle'
 
       - name: 🛠️ Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: 🔐 Decode & Place Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > topmeme.keystore
+          cp topmeme.keystore android/app/topmeme.keystore
 
       - name: 🔐 Give Execute Permissions to Gradlew
         run: chmod +x android/gradlew
 
       - name: ⚙️ Build Android APK & AAB
+        env:
+          MYAPP_RELEASE_STORE_FILE: topmeme.keystore
+          MYAPP_RELEASE_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          MYAPP_RELEASE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          MYAPP_RELEASE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           cd android
-          # Desactivamos el daemon para que no consuma memoria extra
-          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease bundleRelease \
+            -PMYAPP_RELEASE_STORE_FILE=topmeme.keystore \
+            -PMYAPP_RELEASE_STORE_PASSWORD="${{ secrets.KEYSTORE_PASSWORD }}" \
+            -PMYAPP_RELEASE_KEY_ALIAS="${{ secrets.KEY_ALIAS }}" \
+            -PMYAPP_RELEASE_KEY_PASSWORD="${{ secrets.KEY_PASSWORD }}" \
+            --no-daemon \
+            --stacktrace
 
       - name: 🔍 List Android Build Outputs (Debug)
         run: |
-          echo "Checking APKs:"
-          find android/app/build/outputs/apk -name "*.apk" || echo "No APKs found"
-          echo "Checking Bundles:"
-          find android/app/build/outputs/bundle -name "*.aab" || echo "No AABs found"
+          echo "=== APKs ==="
+          find android/app/build/outputs/apk -name "*.apk" 2>/dev/null || echo "No APKs found"
+          echo "=== AABs ==="
+          find android/app/build/outputs/bundle -name "*.aab" 2>/dev/null || echo "No AABs found"
 
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
@@ -61,10 +78,3 @@ jobs:
           name: Topmeme-AAB-Release
           path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
-
-      - name: 📤 Upload Keystore (Key)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Topmeme-Key-Store
-          path: topmeme.keystore
-          if-no-files-found: warn
