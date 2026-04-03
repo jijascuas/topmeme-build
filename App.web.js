@@ -227,18 +227,39 @@ const AuthScreen = ({ onClose }) => {
   const [password, setPassword]   = useState('');
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading]     = useState(false);
+  const [errorMsg, setErrorMsg]   = useState('');
+
+  // Friendly Firebase error messages
+  const getFriendlyError = (code) => {
+    const map = {
+      'auth/user-not-found':      'No account found with this email.',
+      'auth/wrong-password':      'Incorrect password. Please try again.',
+      'auth/email-already-in-use':'This email is already registered. Try logging in.',
+      'auth/weak-password':       'Password must be at least 6 characters.',
+      'auth/invalid-email':       'Please enter a valid email address.',
+      'auth/too-many-requests':   'Too many failed attempts. Please try again later.',
+      'auth/network-request-failed': 'Network error. Check your connection.',
+      'auth/invalid-credential':  'Incorrect email or password.',
+    };
+    return map[code] || 'Authentication error. Please try again.';
+  };
 
   const handleEmailAuth = async () => {
-    if (!email || !password) { safeAlert('Error', 'Enter your email and password.'); return; }
+    if (!email || !password) { setErrorMsg('Please enter your email and password.'); return; }
     setLoading(true);
+    setErrorMsg('');
     try {
-      if (isRegister) await createUserWithEmailAndPassword(auth, email, password);
-      else            await signInWithEmailAndPassword(auth, email, password);
-      
-      // Close modal on success
-      if (onClose) onClose();
-    } catch (e) { 
-      safeAlert('Error', e.message); 
+      if (isRegister) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+      // DO NOT call onClose() here.
+      // The onAuthStateChanged listener in App will detect the new user
+      // and the useEffect watching [user, showAuth] will close the modal safely,
+      // preventing the race condition that causes the white screen.
+    } catch (e) {
+      setErrorMsg(getFriendlyError(e.code));
     } finally {
       setLoading(false);
     }
@@ -298,9 +319,15 @@ const AuthScreen = ({ onClose }) => {
       <Text style={styles.authSubtitle}>{isRegister ? 'Create an account' : 'Log in'}</Text>
 
       <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#666"
-        value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+        value={email} onChangeText={t => { setEmail(t); setErrorMsg(''); }} keyboardType="email-address" autoCapitalize="none" />
       <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#666"
-        value={password} onChangeText={setPassword} secureTextEntry />
+        value={password} onChangeText={t => { setPassword(t); setErrorMsg(''); }} secureTextEntry />
+
+      {errorMsg ? (
+        <View style={{ width: '100%', maxWidth: 360, backgroundColor: '#2a0a0a', borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#aa2233' }}>
+          <Text style={{ color: '#ff6b6b', fontSize: 14, textAlign: 'center' }}>{errorMsg}</Text>
+        </View>
+      ) : null}
 
       {loading ? <ActivityIndicator color="#3897f0" size="large" style={{ marginTop: 20 }} /> : (
         <>
@@ -308,7 +335,7 @@ const AuthScreen = ({ onClose }) => {
             <Text style={styles.authBtnText}>{isRegister ? 'Sign Up' : 'Log In'}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setIsRegister(!isRegister)} style={{ marginTop: 12 }}>
+          <TouchableOpacity onPress={() => { setIsRegister(!isRegister); setErrorMsg(''); }} style={{ marginTop: 12 }}>
             <Text style={styles.switchText}>
               {isRegister ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
             </Text>
@@ -465,7 +492,7 @@ const Sidebar = ({ current, onSelect, user, onUpload, onLogout, isLight, onLogin
       )}
 
       {!isGuest && (
-        <TouchableOpacity style={[styles.logoutBtn, isLight && { backgroundColor: '#ffe5e5', borderColor: '#ffcccc' }]} onPress={handleLogout}>
+        <TouchableOpacity style={[styles.logoutBtn, isLight && { backgroundColor: '#ffe5e5', borderColor: '#ffcccc' }]} onPress={onLogout}>
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
       )}
@@ -857,6 +884,18 @@ const UploadSelectionModal = ({ visible, onClose, onSelect, isLight }) => {
 
 // ── Donation Modal ──────────────────────────────────────────────────────────
 const DonationModal = ({ visible, onClose, isLight }) => {
+  const isAndroidWebView = typeof window !== 'undefined' &&
+    (window.IS_TOPMEME_APK || navigator.userAgent?.includes('TopmemeAndroidWebView'));
+
+  // On web: go directly to Ko-fi without showing the amount picker
+  useEffect(() => {
+    if (visible && !isAndroidWebView) {
+      Linking.openURL('https://ko-fi.com/jijascuas');
+      onClose();
+    }
+  }, [visible]);
+
+  // Android native billing options
   const donationOptions = [
     { id: 'donate_1', label: '$1 - Coffee', value: 1, icon: '☕' },
     { id: 'donate_5', label: '$5 - Pizza', value: 5, icon: '🍕' },
@@ -864,19 +903,12 @@ const DonationModal = ({ visible, onClose, isLight }) => {
   ];
 
   const handleDonate = (sku) => {
-    if (typeof window !== 'undefined' && window.ReactNativeWebView && (window.IS_TOPMEME_APK || navigator.userAgent?.includes("TopmemeAndroidWebView"))) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'PURCHASE',
-        productId: sku
-      }));
-      onClose();
-      safeAlert('Donation', 'Opening billing window...');
-    } else {
-      // Web fallback
-      Linking.openURL('https://ko-fi.com/jijascuas');
-      onClose();
-    }
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PURCHASE', productId: sku }));
+    onClose();
   };
+
+  // On web this modal never renders (opened Ko-fi directly above)
+  if (!isAndroidWebView) return null;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -885,32 +917,23 @@ const DonationModal = ({ visible, onClose, isLight }) => {
           <TouchableOpacity onPress={onClose} style={{ position: 'absolute', top: 15, right: 15, zIndex: 10 }}>
             <Text style={{ color: isLight ? '#000' : '#888', fontSize: 20 }}>✕</Text>
           </TouchableOpacity>
-          
+
           <Text style={[styles.uploadModalTitle, { textAlign: 'center', marginBottom: 8, color: isLight ? '#000' : '#fff' }]}>
             Support Topmeme
           </Text>
           <Text style={{ color: '#888', textAlign: 'center', fontSize: 13, marginBottom: 20 }}>
             Select an amount to help keep the servers running.
           </Text>
-          
+
           {donationOptions.map(opt => (
-            <TouchableOpacity 
+            <TouchableOpacity
               key={opt.id}
-              style={[styles.uploadBtn, { marginBottom: 10, paddingVertical: 14, backgroundColor: isLight ? '#f9f9f9' : '#1a1a1a', borderWidth: 1, borderColor: isLight ? '#ddd' : '#333' }]} 
+              style={[styles.uploadBtn, { marginBottom: 10, paddingVertical: 14, backgroundColor: isLight ? '#f9f9f9' : '#1a1a1a', borderWidth: 1, borderColor: isLight ? '#ddd' : '#333' }]}
               onPress={() => handleDonate(opt.id)}
             >
               <Text style={{ color: isLight ? '#000' : '#fff', fontSize: 16, fontWeight: 'bold' }}>{opt.icon} {opt.label}</Text>
             </TouchableOpacity>
           ))}
-
-          {!(typeof window !== 'undefined' && (window.IS_TOPMEME_APK || navigator.userAgent?.includes("TopmemeAndroidWebView"))) && (
-            <TouchableOpacity 
-              style={{ marginTop: 10, alignSelf: 'center' }}
-              onPress={() => Linking.openURL('https://ko-fi.com/jijascuas')}
-            >
-              <Text style={{ color: '#4caf50', fontSize: 12, textDecorationLine: 'underline' }}>Other ways to support (Ko-fi)</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     </Modal>
@@ -919,17 +942,30 @@ const DonationModal = ({ visible, onClose, isLight }) => {
 
 
 
-// ── Meme Screen ÔÇö feed estilo Instagram ──────────────────────────────────────
-const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onToggleSidebar, selectedMeme, setSelectedMeme }) => {
-  const [memes, setMemes]               = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [likingId, setLikingId]         = useState(null);
+
+// ── Meme Screen — feed estilo Instagram ──────────────────────────────────────
+const MemeScreen = ({ category, user, isLight, onLoginRequest, onToggleSidebar, selectedMeme, setSelectedMeme }) => {
   const { width } = useWindowDimensions();
   const numCols = width < 600 ? 3 : (width < 1024 ? 5 : 7);
   const isMobile = width < 768;
 
+  const [memes, setMemes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [likingId, setLikingId] = useState(null);
+  // Optimistic like state: { [memeId]: boolean }
+  const [localLiked, setLocalLiked] = useState({});
+  // Cooldown: { [memeId]: timestamp when cooldown ends }
+  const [cooldowns, setCooldowns] = useState({});
+  const [cooldownTick, setCooldownTick] = useState(0);
+
+  // Tick every second to update cooldown countdowns
   useEffect(() => {
-    if (!user && (category === 'My Memes')) {
+    const interval = setInterval(() => setCooldownTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!user && category === 'My Memes') {
       setMemes([]);
       setLoading(false);
       return;
@@ -937,391 +973,305 @@ const MemeScreen = ({ category, user, isLight, onLoginRequest, onLikeAction, onT
 
     setLoading(true);
     let q;
+    try {
+      if (category === 'My Memes') {
+        q = query(collection(db, 'memes'), where('uploadedBy', '==', user.uid), orderBy('createdAt', 'desc'), limit(100));
+      } else if (category === 'PROMOTION') {
+        q = query(collection(db, 'memes'), where('category', 'in', ['PROMOTION', 'PROMOCION']), where('approved', '==', true), orderBy('createdAt', 'desc'), limit(100));
+      } else {
+        q = query(collection(db, 'memes'), where('approved', '==', true), orderBy('createdAt', 'desc'), limit(500));
+      }
 
-    if (category === 'My Memes') {
-      // Query specific to user's memes (needs index: uploadedBy + createdAt)
-      q = query(
-        collection(db, 'memes'), 
-        where('uploadedBy', '==', user.uid), 
-        orderBy('createdAt', 'desc'), 
-        limit(100)
-      );
-    } else if (category === 'PROMOTION') {
-      // Query specific to VIP memes (needs index: category + approved + createdAt)
-      q = query(
-        collection(db, 'memes'), 
-        where('category', 'in', ['PROMOTION', 'PROMOCION']), 
-        where('approved', '==', true),
-        orderBy('createdAt', 'desc'), 
-        limit(100)
-      );
-    } else {
-      // Global rankings (needs index: approved + createdAt)
-      q = query(
-        collection(db, 'memes'), 
-        where('approved', '==', true),
-        orderBy('createdAt', 'desc'), 
-        limit(500)
-      );
-    }
-
-    const unsub = onSnapshot(q,
-      snap => { 
+      const unsub = onSnapshot(q, (snap) => {
         let allMemes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        let filtered = [];
+        let filtered = allMemes;
         
-        if (category === 'PROMOTION' || category === 'My Memes') {
-           filtered = allMemes;
-        } else {
-           // Lógica competitiva: filtrar por antigüedad y ordenar por Likes
-           let hoursAgo = 24;
-           if (category === 'Week') hoursAgo = 24 * 7;
-           if (category === 'Month')    hoursAgo = 24 * 30;
-           if (category === 'Year')    hoursAgo = 24 * 365;
-           
-           const now = new Date();
-           const cutoff = new Date(now.getTime() - (hoursAgo * 60 * 60 * 1000));
+        if (category !== 'PROMOTION' && category !== 'My Memes') {
+          let hoursAgo = 24;
+          if (category === 'Week') hoursAgo = 24 * 7;
+          if (category === 'Month') hoursAgo = 24 * 30;
+          if (category === 'Year') hoursAgo = 24 * 365;
 
-           filtered = allMemes.filter(m => {
-             // Exclude VIP from global rankings
-             if (m.category === 'PROMOTION' || m.category === 'PROMOCION') return false;
-             
-             const rawDate = m.createdAt;
-             const memeDate = (rawDate && typeof rawDate.toDate === 'function') ? rawDate.toDate() : (rawDate ? new Date(rawDate) : new Date(0));
-             return memeDate >= cutoff;
-           });
-
-           // Algoritmo: Mayor número de Likes va primero
-           filtered.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+          const cutoff = Date.now() - (hoursAgo * 60 * 60 * 1000);
+          filtered = allMemes.filter(m => {
+            if (m.category === 'PROMOTION' || m.category === 'PROMOCION') return false;
+            const ts = m.createdAt?.toMillis ? m.createdAt.toMillis() : (m.createdAt ? new Date(m.createdAt).getTime() : 0);
+            return ts >= cutoff;
+          });
+          filtered.sort((a,b) => (b.likes || 0) - (a.likes || 0));
         }
-
-        setMemes(filtered); 
-        setLoading(false); 
-      },
-      err  => { console.error(err); setLoading(false); }
-    );
-    return () => unsub();
+        setMemes(filtered);
+        setLoading(false);
+      }, (err) => {
+        console.error('Snapshot error:', err);
+        setLoading(false);
+      });
+      return () => unsub();
+    } catch (e) {
+      console.error('Query setup error:', e);
+      setLoading(false);
+    }
   }, [category, user]);
 
-  const handleLike = async (meme) => {
-    if (likingId === meme.id) return; // Prevent local spamming
+  const handleLike = async (m) => {
+    if (!user || user.isAnonymous) { onLoginRequest(); return; }
+    if (likingId) return;
 
-    const isLiked = meme.likedBy && meme.likedBy.includes(user.uid);
-    
-    // Check 1-minute wait for 'Unlike'
-    if (isLiked) {
-      if (meme.likeTimelock?.[user.uid]) {
-        const timeElapsed = Date.now() - meme.likeTimelock[user.uid];
-        if (timeElapsed < 60000) { // 1 minute in milliseconds
-          const secondsLeft = Math.ceil((60000 - timeElapsed) / 1000);
-          const msg = `⏳ Please wait ${secondsLeft} seconds before canceling your vote.`;
-          safeAlert('Too Fast', msg);
-          return;
-        }
-      }
+    // Determine current liked state (local optimistic state takes priority)
+    const realLiked = m.id in localLiked ? localLiked[m.id] : (m.likedBy || []).includes(user.uid);
+
+    // COOLDOWN CHECK: if the like is active AND cooldown hasn't expired yet → block removal
+    if (realLiked && cooldowns[m.id] && Date.now() < cooldowns[m.id]) {
+      return; // blocked — the UI already shows the countdown
     }
 
-    // Confirmed action: Like is now direct, Delete and others use custom modal
-    if (Platform.OS === 'web') {
-      executeToggleLike(meme, isLiked);
+    // --- OPTIMISTIC UPDATE (instant visual feedback) ---
+    setLocalLiked(prev => ({ ...prev, [m.id]: !realLiked }));
+
+    // When GIVING a like → start 1-minute cooldown before it can be removed
+    if (!realLiked) {
+      const cooldownEnd = Date.now() + 60 * 1000;
+      setCooldowns(prev => ({ ...prev, [m.id]: cooldownEnd }));
     } else {
-      const msg = isLiked ? 'Are you sure you want to remove your Like?' : 'Do you want to Like this meme?';
-      Alert.alert('Confirm', msg, [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Yes', style: isLiked ? 'destructive' : 'default', onPress: () => executeToggleLike(meme, isLiked) }
-      ]);
+      // When REMOVING a like (after cooldown) → clear the cooldown
+      setCooldowns(prev => { const n = { ...prev }; delete n[m.id]; return n; });
     }
-  };
 
-  const executeToggleLike = async (meme, isLiked) => {
-    setLikingId(meme.id);
+    setLikingId(m.id);
     try {
-      const memeRef = doc(db, 'memes', meme.id);
-      
-      await runTransaction(db, async (transaction) => {
-        const memeDoc = await transaction.get(memeRef);
-        if (!memeDoc.exists()) throw new Error('El meme ya no existe.');
-        
-        const data = memeDoc.data();
-        const currentLikedBy = data.likedBy || [];
-        const currentLikes = data.likes || 0;
-        const timelocks = data.likeTimelock || {};
-
-        if (!isLiked) {
-          // Add Like
-          if (currentLikedBy.includes(user.uid)) return; // Already liked natively
-          currentLikedBy.push(user.uid);
-          timelocks[user.uid] = Date.now(); // Record exact timestamp of the like
-
-          transaction.update(memeRef, {
-            likes: currentLikes + 1,
-            likedBy: currentLikedBy,
-            likeTimelock: timelocks
-          });
-        } else {
-          // Remove Like
-          if (!currentLikedBy.includes(user.uid)) return; // Already unliked
-          const newLikedBy = currentLikedBy.filter(id => id !== user.uid);
-          delete timelocks[user.uid]; // Clear their lock
-
-          transaction.update(memeRef, {
-            likes: Math.max(0, currentLikes - 1),
-            likedBy: newLikedBy,
-            likeTimelock: timelocks
-          });
-        }
+      const currentLikes = m.likes || 0;
+      const newLikes = realLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1;
+      await updateDoc(doc(db, 'memes', m.id), {
+        likes: newLikes,
+        likedBy: realLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
       });
-      
-      // Notificar al componente App de la acción de Like/Unlike
-      if (onLikeAction) onLikeAction();
-      
     } catch (e) {
-      safeAlert('Error', e.message);
+      console.error('Like error:', e);
+      // Revert optimistic update on error
+      setLocalLiked(prev => ({ ...prev, [m.id]: realLiked }));
+      setCooldowns(prev => { const n = { ...prev }; delete n[m.id]; return n; });
     }
     setLikingId(null);
   };
 
-  const shareMeme = async (meme) => {
-    const deepLink = `${WEB_URL}?meme=${meme.id}`;
-    const shareData = {
-      title: 'Topmeme',
-      text: `Like this meme so it appears at the top of the ranking!: "${meme.title}"`,
-      url: deepLink
-    };
-
-    // 1. Try React Native WebView Bridge (for the APK)
-    // Only if detected we're in the Topmeme APK
-    if (typeof window !== 'undefined' && window.ReactNativeWebView && (window.IS_TOPMEME_APK || navigator.userAgent.includes("TopmemeAndroidWebView"))) {
-       window.ReactNativeWebView.postMessage(JSON.stringify({
-         type: 'SHARE',
-         message: `${shareData.text}\n${shareData.url}`,
-         title: shareData.title,
-         url: shareData.url
-       }));
-       return;
-    }
-    
-    // 2. Try Web Share API (for mobile browsers)
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch (e) {
-        if (e.name !== 'AbortError') console.error("Share failed:", e);
+  const shareMeme = async (m) => {
+    const url = `${WEB_URL}?meme=${m.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: m.title || 'Topmeme', text: `Check out this meme! "${m.title}"`, url });
+      } else {
+        const text = encodeURIComponent(`Check out this meme! "${m.title}"\n`);
+        const link = encodeURIComponent(url);
+        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
       }
-    }
-
-    // Fallback: Twitter/X intent
-    if (Platform.OS === 'web') {
-       const memeImg = meme.imageUrl || meme.url;
-       const text = encodeURIComponent(`Like this meme so it appears at the top of the ranking! "${meme.title || ''}"\n\n${memeImg}\n`);
-       const link = encodeURIComponent(shareData.url);
-       const intentUrl = `https://twitter.com/intent/tweet?text=${text}&url=${link}`;
-       window.open(intentUrl, '_blank');
-    } else {
-      try {
-        await Share.share({
-          message: `${shareData.text}\n${deepLink}`,
-          url: deepLink, 
-          title: 'Topmeme'
-        });
-      } catch (error) {
-        console.error(error);
-      }
-    }
+    } catch (e) { if (e.name !== 'AbortError') console.error('Share error:', e); }
   };
 
-  const deleteMeme = async (meme) => {
-    if (user?.uid !== meme.uploadedBy) return;
-    
-    if (Platform.OS === 'web') {
-      if (globalShowConfirm) {
-        globalShowConfirm({
-          title: 'Erase Meme',
-          message: 'Are you sure you want to permanently delete this meme?',
-          isDestructive: true,
-          confirmText: 'Delete',
-          onConfirm: async () => {
-             try {
-               await deleteDoc(doc(db, 'memes', meme.id));
-               setSelectedMeme(null);
-               if (globalShowToast) globalShowToast('Meme deleted successfully!');
-             } catch (e) { safeAlert('Error', e.message); }
-          }
-        });
-      }
-      return;
-    }
-
-    Alert.alert('Erase Meme', 'Are you sure you want to permanently delete this meme?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-         try {
-           await deleteDoc(doc(db, 'memes', meme.id));
-           setSelectedMeme(null);
-           Alert.alert('Success', 'Meme deleted successfully!');
-         } catch (e) { Alert.alert('Error', e.message); }
-      }}
-    ]);
+  const deleteMeme = async (m) => {
+    if (!user || user.uid !== m.uploadedBy) return;
+    const confirmed = window.confirm(`Delete "${m.title}"? This cannot be undone.`);
+    if (!confirmed) return;
+    try {
+      await deleteDoc(doc(db, 'memes', m.id));
+      setSelectedMeme(null);
+      if (globalShowToast) globalShowToast('🗑️ Meme deleted.');
+    } catch (e) { console.error('Delete error:', e); }
   };
 
-  if (loading) return (
-    <View style={[styles.content, { justifyContent: 'center', alignItems: 'center' }, isLight && { backgroundColor: '#f5f5f5' }]}>
-      <ActivityIndicator color="#3897f0" size="large" />
-      <Text style={{ color: isLight ? '#888' : '#aaa', marginTop: 12 }}>⌛ Loading memes...</Text>
-    </View>
-  );
+  try {
+    if (loading) return (
+      <View style={[styles.content, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#3897f0" size="large" />
+        <Text style={{ color: '#aaa', marginTop: 12 }}>⌛ Loading memes...</Text>
+      </View>
+    );
 
-  const renderItem = ({ item: m }) => (
-    <TouchableOpacity 
-      style={[
-        styles.gridCell, 
-        { maxWidth: `${(100 / numCols).toFixed(2)}%` },
-        isLight && { backgroundColor: '#fff', borderColor: '#e0e0e0' }
-      ]} 
-      onPress={() => setSelectedMeme(m)}
-    >
-      <Image source={{ uri: m.imageUrl || m.url }} style={styles.gridThumb} resizeMode="cover" />
-      {(m.category === 'PROMOTION' || m.category === 'PROMOCION') && (
-        <View style={[styles.vipBadgeSmall, !m.approved && { backgroundColor: '#ff4d6d' }, { position: 'absolute', top: 5, right: 5, width: 34, height: 34, borderRadius: 17, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }]}>
-          <Text style={[styles.vipBadgeTextSmall, { fontSize: 10 }]}>
-            {m.approved ? '🌟' : '⏳'}
+    const isPromotion = (m) => m.category === 'PROMOTION' || m.category === 'PROMOCION';
+    const isOnHold    = (m) => isPromotion(m) && !m.approved;
+    const isPromoted  = (m) => isPromotion(m) && m.approved;
+
+    return (
+      <View style={[styles.content, isLight && { backgroundColor: '#f0f2f5' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: isLight ? '#eee' : '#222' }}>
+          {isMobile && (
+            <TouchableOpacity onPress={onToggleSidebar} style={{ padding: 10, marginRight: 10, backgroundColor: '#3897f0', borderRadius: 8 }}>
+              <Text style={{ fontSize: 20, color: '#fff' }}>☰</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={[styles.headerTitle, isLight && { color: '#111' }, category === 'PROMOTION' && { color: '#ffd700' }, { marginBottom: 0, flex: 1, fontSize: 18 }]}>
+            {category === 'PROMOTION' ? '🌟 PROMOTION' : (category === 'My Memes' ? '👤 My Memes' : `🏆 ${category} Top`)}
           </Text>
         </View>
-      )}
-      <View style={[styles.gridLikesBadge, isLight && { backgroundColor: 'rgba(255,255,255,0.85)' }]}>
-        <Text style={[styles.gridLikesText, isLight && { color: '#000' }]}>{m.likedBy?.includes(user?.uid) ? '❤️' : '🤍'} {m.likes || 0}</Text>
-      </View>
-    </TouchableOpacity>
-  );
 
-  return (
-    <View style={[styles.content, isLight && { backgroundColor: '#f0f2f5' }]}>
-      {/* --- Header: Always visible --- */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: isLight ? '#eee' : '#222' }}>
-        {isMobile && (
-          <TouchableOpacity onPress={onToggleSidebar} style={{ padding: 10, marginRight: 10, backgroundColor: '#3897f0', borderRadius: 8 }}>
-            <Text style={{ fontSize: 20, color: '#fff' }}>☰</Text>
-          </TouchableOpacity>
-        )}
-        <Text style={[styles.headerTitle, isLight && { color: '#111' }, category === 'PROMOTION' && { color: '#ffd700' }, { marginBottom: 0, flex: 1, fontSize: 18 }]}>
-          {category === 'PROMOTION' ? '🌟 PROMOTION' : (category === 'My Memes' ? '👤 My Memes' : `🏆 ${category} Top`)}
-        </Text>
-      </View>
-
-      <Text style={[styles.disclaimerText, isLight && { color: '#666' }]}>
-        ⚠️ Topmeme is not responsible for the content uploaded by users.
-      </Text>
-
-      {/* Grid OR Empty State */}
-      {memes.length === 0 ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
-          <Text style={[styles.emptyText, isLight && { color: '#666' }, { fontSize: 22, textAlign: 'center' }]}>
-            {category === 'PROMOTION' ? '🌟 No promotions yet' : (category === 'My Memes' ? '📂 No memes found' : '🏚️ No memes in this top')}
-          </Text>
-          <Text style={{ color: isLight ? '#888' : '#555', marginTop: 12, textAlign: 'center', fontSize: 15 }}>
-            {category === 'PROMOTION' ? 'Be the first to stand out for $10!' : (category === 'My Memes' ? 'You have not uploaded any meme yet.' : 'There are no memes in this ranking yet. Be the first!')}
-          </Text>
-          <TouchableOpacity 
-             style={{ marginTop: 25, backgroundColor: '#3897f0', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 }}
-             onPress={onToggleSidebar}
-          >
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Change Category ☰</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList 
-          data={memes} 
-          keyExtractor={m => m.id} 
-          numColumns={numCols}
-          columnWrapperStyle={styles.gridRow}
-          renderItem={renderItem}
-          key={`grid-${numCols}`}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-
-      {/* Detail Modal */}
-      <Modal visible={!!selectedMeme} transparent animationType="fade" onRequestClose={() => setSelectedMeme(null)}>
-        <TouchableOpacity 
-          activeOpacity={1} 
-          style={styles.detailOverlay} 
-          onPress={() => setSelectedMeme(null)}
-        >
-          {selectedMeme && (
-            <>
-              <TouchableOpacity 
-                style={[styles.detailClose, { zIndex: 10 }]} 
-                onPress={() => setSelectedMeme(null)}
+        {memes.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
+            <Text style={[styles.emptyText, isLight && { color: '#666' }, { fontSize: 22, textAlign: 'center' }]}>
+              {category === 'PROMOTION' ? '🌟 No promotions yet' : (category === 'My Memes' ? '📂 No memes uploaded yet' : '🏚️ No memes in this period')}
+            </Text>
+            <TouchableOpacity style={{ marginTop: 25, backgroundColor: '#3897f0', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 }} onPress={onToggleSidebar}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Change Category ☰</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={memes}
+            keyExtractor={m => m.id}
+            numColumns={numCols}
+            columnWrapperStyle={styles.gridRow}
+            key={`grid-${numCols}`}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item: m }) => (
+              <TouchableOpacity
+                style={[styles.gridCell, { maxWidth: `${(100 / numCols).toFixed(2)}%` }, isLight && { backgroundColor: '#fff', borderColor: '#e0e0e0' }]}
+                onPress={() => setSelectedMeme(m)}
               >
-                <Text style={styles.detailCloseText}>✕</Text>
-              </TouchableOpacity>
+                <Image source={{ uri: m.imageUrl || m.url }} style={styles.gridThumb} resizeMode="cover" />
 
-              <Image 
-                source={{ uri: selectedMeme.imageUrl || selectedMeme.url }} 
-                style={styles.detailImage} 
-                resizeMode="contain" 
-              />
-
-              <View onStartShouldSetResponder={() => true} style={styles.detailMeta}>
-                <Text style={styles.detailTitle}>{selectedMeme.title}</Text>
-                <Text style={styles.detailAuthor}>by {selectedMeme.author || 'Anonymous'}</Text>
-
-                {(selectedMeme.category === 'PROMOTION' || selectedMeme.category === 'PROMOCION') && (
-                  <View style={[styles.statusBadge, { backgroundColor: selectedMeme.approved ? '#ffd700' : '#ff4d6d' }]}>
-                    <Text style={styles.statusBadgeText}>
-                      {selectedMeme.approved ? '🌟 PROMOTED MEME' : '⏳ PAYMENT ON HOLD'}
+                {/* Badge: Promotion or Hold status */}
+                {(isPromotion(m) || (category === 'My Memes' && !m.approved && isPromotion(m))) && (
+                  <View style={{
+                    position: 'absolute', top: 4, left: 4,
+                    backgroundColor: isOnHold(m) ? 'rgba(255,77,109,0.85)' : 'rgba(255,215,0,0.9)',
+                    borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2
+                  }}>
+                    <Text style={{ fontSize: 10, fontWeight: 'bold', color: isOnHold(m) ? '#fff' : '#000' }}>
+                      {isOnHold(m) ? '⏳ HOLD' : '🌟'}
                     </Text>
                   </View>
                 )}
 
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                  <TouchableOpacity 
-                    style={[styles.detailLikeBtn, { flex: 1, minWidth: 100 }, selectedMeme.likedBy?.includes(user?.uid) && { borderColor: '#ff4d6d' }]} 
-                    onPress={() => handleLike(selectedMeme)}
-                  >
-                    <Text style={styles.detailLikeText}>
-                      {selectedMeme.likedBy?.includes(user?.uid) ? '❤️ Cancel' : '🤍 Like'}
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                    style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#4caf50' }]} 
-                    onPress={() => shareMeme(selectedMeme)}
-                  >
-                    <Text style={[styles.detailLikeText, { color: '#4caf50' }]}>📤 Share</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[styles.detailLikeBtn, { flex: 1, minWidth: 100, borderColor: '#1da1f2' }]} 
-                    onPress={() => {
-                      const text = encodeURIComponent(`Like this meme so it appears at the top of the ranking!: "${selectedMeme.title}"\n`);
-                      const link = encodeURIComponent(`${WEB_URL}?meme=${selectedMeme.id}`);
-                      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
-                    }}
-                  >
-                    <Text style={[styles.detailLikeText, { color: '#1da1f2' }]}>𝕏 Post</Text>
-                  </TouchableOpacity>
+                <View style={[styles.gridLikesBadge, isLight && { backgroundColor: 'rgba(255,255,255,0.85)' }]}>
+                  <Text style={[styles.gridLikesText, isLight && { color: '#000' }]}>{(m.likedBy || []).includes(user?.uid) ? '❤️' : '🤍'} {m.likes || 0}</Text>
                 </View>
+              </TouchableOpacity>
+            )}
+          />
+        )}
 
-                {user && user.uid === selectedMeme.uploadedBy && (
-                  <TouchableOpacity style={[styles.detailLikeBtn, { marginTop: 12, borderColor: '#f44', backgroundColor: '#311', width: '100%' }]} onPress={() => deleteMeme(selectedMeme)}>
-                    <Text style={[styles.detailLikeText, { color: '#f44', fontSize: 13 }]}>🗑️ Delete Meme</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </>
-          )}
-        </TouchableOpacity>
-      </Modal>
-    </View>
-  );
+        <Modal visible={!!selectedMeme} transparent animationType="fade" onRequestClose={() => setSelectedMeme(null)}>
+          <TouchableOpacity activeOpacity={1} style={styles.detailOverlay} onPress={() => setSelectedMeme(null)}>
+            {selectedMeme && (
+              <>
+                <TouchableOpacity
+                  style={{ position: 'absolute', top: 20, right: 20, zIndex: 20, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }}
+                  onPress={() => setSelectedMeme(null)}
+                >
+                  <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold' }}>✕</Text>
+                </TouchableOpacity>
+
+                <View
+                  onStartShouldSetResponder={() => true}
+                  style={{ width: '95%', maxWidth: 800, backgroundColor: isLight ? '#fff' : '#111', borderRadius: 20, overflow: 'hidden', maxHeight: '95%' }}
+                >
+                  <Image
+                    source={{ uri: selectedMeme.imageUrl || selectedMeme.url }}
+                    style={{ width: '100%', height: undefined, aspectRatio: 16/9, minHeight: 300, maxHeight: 600, backgroundColor: '#000' }}
+                    resizeMode="contain"
+                  />
+                  <View style={[styles.detailMeta, isLight && { backgroundColor: '#fff' }]}>
+                    <Text style={[styles.detailTitle, isLight && { color: '#111' }]}>{selectedMeme.title}</Text>
+                    {selectedMeme.author ? (
+                      <Text style={{ color: isLight ? '#888' : '#666', fontSize: 12, marginTop: 2 }}>by {selectedMeme.author}</Text>
+                    ) : null}
+
+                    {/* Status badge for Promotion / ON HOLD */}
+                    {isPromotion(selectedMeme) && (
+                      <View style={[styles.statusBadge, { backgroundColor: isOnHold(selectedMeme) ? '#ff4d6d' : '#ffd700', marginTop: 10 }]}>
+                        <Text style={[styles.statusBadgeText, { color: isOnHold(selectedMeme) ? '#fff' : '#000' }]}>
+                          {isOnHold(selectedMeme) ? '⏳ PAYMENT ON HOLD' : '🌟 PROMOTED MEME'}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Action buttons row */}
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                      {/* Like */}
+                      {(() => {
+                        const isLikedLocal = selectedMeme.id in localLiked ? localLiked[selectedMeme.id] : (selectedMeme.likedBy || []).includes(user?.uid);
+                        const cdEnd = cooldowns[selectedMeme.id];
+                        const remaining = cdEnd ? Math.max(0, Math.ceil((cdEnd - Date.now()) / 1000)) : 0;
+                        const inCooldown = isLikedLocal && remaining > 0;
+                        return (
+                          <>
+                            <TouchableOpacity
+                              style={[styles.detailLikeBtn, { flex: 1, minWidth: 90 },
+                                isLikedLocal && { borderColor: '#ff4d6d', backgroundColor: '#3d0010' },
+                                inCooldown && { opacity: 0.6 }
+                              ]}
+                              onPress={() => handleLike(selectedMeme)}
+                              disabled={!!likingId || inCooldown}
+                            >
+                              <Text style={[styles.detailLikeText, { fontSize: 22 }]}>
+                                {isLikedLocal ? '❤️' : '🤍'}
+                              </Text>
+                            </TouchableOpacity>
+                            {inCooldown && (
+                              <View style={{ width: '100%', marginTop: 6, backgroundColor: '#1a0a00', borderRadius: 8, padding: 8, borderWidth: 1, borderColor: '#ff6b00', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                <Text style={{ fontSize: 16 }}>⏳</Text>
+                                <Text style={{ color: '#ffaa44', fontSize: 13, fontWeight: 'bold' }}>
+                                  You can remove this like in {remaining}s
+                                </Text>
+                              </View>
+                            )}
+                          </>
+                        );
+                      })()}
+
+                      {/* Share */}
+                      <TouchableOpacity
+                        style={[styles.detailLikeBtn, { flex: 1, minWidth: 90, borderColor: '#4caf50' }]}
+                        onPress={() => shareMeme(selectedMeme)}
+                      >
+                        <Text style={[styles.detailLikeText, { color: '#4caf50' }]}>📤 Share</Text>
+                      </TouchableOpacity>
+
+                      {/* Post on X/Twitter */}
+                      <TouchableOpacity
+                        style={[styles.detailLikeBtn, { flex: 1, minWidth: 90, borderColor: '#1da1f2' }]}
+                        onPress={() => {
+                          const text = encodeURIComponent(`Like this meme so it appears at the top of the ranking! "${selectedMeme.title}"\n`);
+                          const link = encodeURIComponent(`${WEB_URL}?meme=${selectedMeme.id}`);
+                          window.open(`https://twitter.com/intent/tweet?text=${text}&url=${link}`, '_blank');
+                        }}
+                      >
+                        <Text style={[styles.detailLikeText, { color: '#1da1f2' }]}>𝕏 Post</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Delete — only for the meme's owner */}
+                    {user && user.uid === selectedMeme.uploadedBy && (
+                      <TouchableOpacity
+                        style={[styles.detailLikeBtn, { marginTop: 10, borderColor: '#f44', backgroundColor: '#1a0000', width: '100%' }]}
+                        onPress={() => deleteMeme(selectedMeme)}
+                      >
+                        <Text style={[styles.detailLikeText, { color: '#f44', fontSize: 13 }]}>🗑️ Delete Meme</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity onPress={() => setSelectedMeme(null)} style={{ marginTop: 16, alignSelf: 'center', paddingVertical: 8 }}>
+                      <Text style={{ color: isLight ? '#888' : '#555', fontSize: 13 }}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            )}
+          </TouchableOpacity>
+        </Modal>
+      </View>
+    );
+  } catch (err) {
+    return <View style={{ flex: 1, backgroundColor: '#300', justifyContent: 'center' }}><Text style={{ color: '#fff', textAlign: 'center' }}>Crash: {err.message}</Text></View>;
+  }
 };
 
 // ── END OF FILE
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
+  console.log('Topmeme Web: Rendering App component...');
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+
   const [user, setUser]                   = useState(null);
   const [authLoading, setAuthLoading]     = useState(true);
   const [currentCategory, setCurrentCategory] = useState('Day');
@@ -1332,7 +1282,12 @@ export default function App() {
   const [selectedMeme, setSelectedMeme]   = useState(null);
   const [isLight, setIsLight]             = useState(false);
   const [showAuth, setShowAuth]           = useState(false);
-  const [nickname, setNickname]           = useState(() => {
+  const [toast, setToast]                 = useState(null);
+  const toastTimeout                      = useRef(null);
+  const [confirmData, setConfirmData]     = useState(null);
+  const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
+
+  const [nickname, setNickname] = useState(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         return localStorage.getItem('topmeme_nickname') || 'Anonymous';
@@ -1341,59 +1296,44 @@ export default function App() {
     return 'Anonymous';
   });
 
-  const { width } = useWindowDimensions();
-  const isMobile = width < 768;
-  const [sidebarVisible, setSidebarVisible] = useState(!isMobile);
-  const [toast, setToast] = useState(null);
-  const toastTimeout = useRef(null);
-  const [confirmData, setConfirmData] = useState(null); // { title, message, onConfirm, isDestructive }
-
   const showToast = (msg) => {
     if (toastTimeout.current) clearTimeout(toastTimeout.current);
     setToast(msg);
-    toastTimeout.current = setTimeout(() => setToast(null), 5000);
+    toastTimeout.current = setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleLogout = async () => {
+    try {
+       await signOut(auth);
+       showToast('Logged out successfully');
+    } catch (e) {
+       safeAlert('Error', e.message);
+    }
   };
 
   useEffect(() => {
     globalShowToast = showToast;
     globalShowConfirm = setConfirmData;
-    return () => { 
-      globalShowToast = null; 
-      globalShowConfirm = null;
-    };
+    return () => { globalShowToast = null; globalShowConfirm = null; };
   }, []);
 
-  // --- Purchase Event Listener from Native ---
   useEffect(() => {
     const handleNativeMessage = (event) => {
       try {
         const data = JSON.parse(typeof event.data === 'string' ? event.data : '{}');
         if (data.type === 'PURCHASE_SUCCESS') {
-           if (data.productId === 'promotion_10usd' && data.docId) {
-             // Auto-approve the meme in Firestore
-             const memeRef = doc(db, 'memes', data.docId);
-             updateDoc(memeRef, { approved: true }).then(() => {
-                showToast('🌟 Promotion activated! Your meme is now public.');
-             }).catch(err => {
-                console.error("Error approving meme:", err);
-                showToast('Payment successful! Approval pending...');
-             });
-           } else {
-             showToast('❤️ Thank you so much for your donation!');
-           }
-        } else if (data.type === 'PURCHASE_ERROR') {
-          if (data.code === 'E_USER_CANCELLED' || data.message?.includes('canceled')) {
-            showToast('💰 Payment canceled.');
+          if (data.productId === 'promotion_10usd' && data.docId) {
+            updateDoc(doc(db, 'memes', data.docId), { approved: true })
+              .then(() => showToast('🌟 Promotion activated!'))
+              .catch(() => showToast('Payment OK! Approval pending...'));
           } else {
-            showToast(`❌ Purchase error: ${data.message}`);
+            showToast('❤️ Thank you for your support!');
           }
         }
       } catch (e) {}
     };
-
     if (typeof window !== 'undefined') {
       window.addEventListener('message', handleNativeMessage);
-      // For some Webview versions it's document
       document.addEventListener('message', handleNativeMessage);
     }
     return () => {
@@ -1402,47 +1342,25 @@ export default function App() {
     };
   }, []);
 
-  // Sync sidebar visibility with window resize
-  useEffect(() => {
-     if (!isMobile) setSidebarVisible(true);
-  }, [isMobile]);
-
-  // Deep linking: load meme from URL param (?meme=DOC_ID)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const memeId = params.get('meme');
-    if (memeId) {
-      const memeRef = doc(db, 'memes', memeId);
-      getDoc(memeRef).then(snap => {
-        if (snap.exists()) {
-          setSelectedMeme({ id: snap.id, ...snap.data() });
-        }
-      }).catch(console.error);
-    }
-  }, []);
-
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, u => { 
       if (!u) {
         setUser(null);
-        signInAnonymously(auth).catch(e => {
-          console.error("Anonymous auth failed:", e);
-          setAuthLoading(false);
-        });
+        signInAnonymously(auth).catch(() => setAuthLoading(false));
       } else {
         setUser(u); 
         setAuthLoading(false); 
       }
     });
-    return () => {
-      unsubAuth();
-    };
+    return () => unsubAuth();
   }, []);
 
   useEffect(() => {
-    if (user && !user.isAnonymous && showAuth) {
-      setShowAuth(false);
-    }
+    if (!isMobile) setSidebarVisible(true);
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (user && !user.isAnonymous && showAuth) setShowAuth(false);
   }, [user, showAuth]);
 
   useEffect(() => {
@@ -1453,181 +1371,102 @@ export default function App() {
     } catch(e) {}
   }, [nickname]);
 
-  // ── SEO & Previews (Client-side) ─────────────────────────
-  useEffect(() => {
-    if (selectedMeme && typeof document !== 'undefined') {
-      const title = `Topmeme - "${selectedMeme.title || 'Meme'}"`;
-      const img = selectedMeme.imageUrl || selectedMeme.url;
-      document.title = title;
-      
-      const updateMeta = (prop, val) => {
-        let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
-        if (el) el.setAttribute('content', val);
-      };
-      updateMeta('og:title', title);
-      updateMeta('og:image', img);
-      updateMeta('twitter:title', title);
-      updateMeta('twitter:image', img);
-    } else if (typeof document !== 'undefined') {
-      document.title = 'Topmeme';
-      const updateMeta = (prop, val) => {
-        let el = document.querySelector(`meta[property="${prop}"]`) || document.querySelector(`meta[name="${prop}"]`);
-        if (el) el.setAttribute('content', val);
-      };
-      updateMeta('og:title', 'Topmeme');
-      updateMeta('og:image', 'https://topmeme-jijascuas.web.app/logo.png');
-    }
-  }, [selectedMeme]);
+  try {
+    if (authLoading) return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color="#3897f0" size="large" />
+        <Text style={{ color: '#aaa', marginTop: 12 }}>🚀 Starting Topmeme...</Text>
+      </View>
+    );
 
-  const handleLogout = async () => { 
-    await signOut(auth).catch(console.error); 
-    setSidebarVisible(false);
-    setCurrentCategory('Day');
-  };
-
-  if (authLoading) return (
-    <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-      <ActivityIndicator color="#3897f0" size="large" />
-      <Text style={{ color: '#aaa', marginTop: 12 }}>🚀 Connecting to Topmeme (Firebase)...</Text>
-    </View>
-  );
-
-  if (!user && showAuth) return <AuthScreen onClose={() => setShowAuth(false)} />;
-
-  return (
-    <SafeAreaView style={[styles.container, isLight && { backgroundColor: '#f0f2f5' }]}>
-      {/* Confirmation Modal */}
-      {confirmData && (
-        <Modal visible={true} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.uploadModal, { maxWidth: 320, padding: 24 }]}>
-               <Text style={[styles.uploadModalTitle, { textAlign: 'center' }]}>{confirmData.title}</Text>
-               <Text style={{ color: '#aaa', textAlign: 'center', marginTop: 12, marginBottom: 24, fontSize: 14 }}>{confirmData.message}</Text>
-               <View style={{ flexDirection: 'row', gap: 12 }}>
-                  <TouchableOpacity 
-                    style={[styles.cancelBtn, { flex: 1 }]} 
-                    onPress={() => setConfirmData(null)}
-                  >
-                    <Text style={styles.cancelBtnText}>No</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={[styles.uploadBtn, { flex: 1, backgroundColor: confirmData.isDestructive ? '#f44' : '#3897f0', borderRadius: 10 }]} 
-                    onPress={() => {
-                      confirmData.onConfirm();
-                      setConfirmData(null);
-                    }}
-                  >
-                    <Text style={styles.uploadText}>{confirmData.confirmText || 'Yes'}</Text>
-                  </TouchableOpacity>
-               </View>
+    return (
+      <SafeAreaView style={[styles.container, isLight && { backgroundColor: '#f0f2f5' }]}>
+        <View style={styles.appContainer}>
+          {sidebarVisible && (
+            <View style={[
+              styles.sidebarWrapper, 
+              isMobile && { position: 'absolute', zIndex: 1000, height: '100%', width: 250, borderRightWidth: 1, borderColor: '#333' }
+            ]}>
+              <Sidebar
+                current={currentCategory}
+                onSelect={(cat) => {
+                  if (cat === 'DONATION') setShowDonation(true);
+                  else setCurrentCategory(cat);
+                  if (isMobile) setSidebarVisible(false);
+                }}
+                user={user}
+                onUpload={() => user?.isAnonymous ? setShowAuth(true) : setShowUploadSelection(true)}
+                onLogout={handleLogout}
+                isLight={isLight}
+                onLoginRequest={() => setShowAuth(true)}
+                nickname={nickname}
+                setNickname={setNickname}
+              />
             </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* Toast Notification */}
-      {toast && (
-        <View 
-          style={{
-            position: 'absolute', top: 40, left: '50%', marginLeft: -160,
-            width: 320, backgroundColor: '#3897f0', borderRadius: 16, padding: 20,
-            zIndex: 10000, elevation: 12, shadowColor: '#000', shadowOffset: {width: 0, height: 6},
-            shadowOpacity: 0.4, shadowRadius: 8, alignItems: 'center', justifyContent: 'center',
-            borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)'
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>{toast}</Text>
-          <TouchableOpacity onPress={() => setToast(null)} style={{ position: 'absolute', top: 8, right: 12 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>✕</Text>
-          </TouchableOpacity>
+          )}
+          <MemeScreen 
+            category={currentCategory} 
+            user={user} 
+            isLight={isLight} 
+            onLoginRequest={() => setShowAuth(true)} 
+            onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
+            selectedMeme={selectedMeme}
+            setSelectedMeme={setSelectedMeme}
+          />
         </View>
-      )}
 
-      <View style={styles.appContainer}>
-        {sidebarVisible && (
-          <View style={[
-            styles.sidebarWrapper, 
-            isMobile && { position: 'absolute', zIndex: 1000, height: '100%', width: 250, borderRightWidth: 1, borderColor: '#333' }
-          ]}>
-            <Sidebar
-              current={currentCategory}
-              onSelect={(cat) => {
-                if (cat === 'DONATION') {
-                  setShowDonation(true);
-                } else {
-                  setCurrentCategory(cat);
-                }
-                if (isMobile) setSidebarVisible(false);
-              }}
-              user={user}
-              onUpload={() => setShowUploadSelection(true)}
-              onLogout={handleLogout}
-              isLight={isLight}
-              onLoginRequest={() => setShowAuth(true)}
-              nickname={nickname}
-              setNickname={setNickname}
-            />
-            {isMobile && (
-               <TouchableOpacity 
-                 onPress={() => setSidebarVisible(false)} 
-                 style={{ position: 'absolute', top: 20, right: -40, backgroundColor: '#000', padding: 10, borderRadius: 20 }}
-               >
-                 <Text style={{ color: '#fff', fontSize: 18 }}>✕</Text>
-               </TouchableOpacity>
-            )}
+        {showUploadSelection && (
+           <UploadSelectionModal 
+             visible={showUploadSelection}
+             onClose={() => setShowUploadSelection(false)}
+             isLight={isLight}
+             onSelect={(mode) => {
+               setUploadTargetCategory(mode);
+               setShowUploadSelection(false);
+               setShowUpload(true);
+             }}
+           />
+        )}
+
+        {showUpload && (
+          <UploadModal 
+            visible={showUpload} 
+            onClose={() => setShowUpload(false)} 
+            user={user} 
+            category={uploadTargetCategory} 
+            nickname={nickname}
+            isLight={isLight}
+          />
+        )}
+
+        {showDonation && (
+          <DonationModal visible={showDonation} onClose={() => setShowDonation(false)} isLight={isLight} />
+        )}
+
+        {showAuth && (
+           <Modal visible={showAuth} transparent animationType="slide" onRequestClose={() => setShowAuth(false)}>
+             <AuthScreen onClose={() => setShowAuth(false)} />
+           </Modal>
+        )}
+
+        {toast && (
+          <View style={styles.toastContainer}>
+             <Text style={styles.toastText}>{toast}</Text>
           </View>
         )}
-        <MemeScreen 
-          category={currentCategory} 
-          user={user} 
-          isLight={isLight} 
-          onLoginRequest={() => setShowAuth(true)} 
-          onToggleSidebar={() => setSidebarVisible(!sidebarVisible)}
-          selectedMeme={selectedMeme}
-          setSelectedMeme={setSelectedMeme}
-          onLikeAction={() => {
-            // Unused hook for web version
-          }}
-        />
+      </SafeAreaView>
+    );
+  } catch (err) {
+    console.error('App Render Error:', err);
+    return (
+      <View style={{ flex: 1, backgroundColor: '#500', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#fff', fontSize: 20 }}>Fatal Error: {err.message}</Text>
+        <TouchableOpacity onPress={() => window.location.reload()} style={{ marginTop: 20, padding: 10, backgroundColor: '#fff' }}>
+          <Text style={{ color: '#500' }}>Retry</Text>
+        </TouchableOpacity>
       </View>
-
-      {showUploadSelection && (
-        <UploadSelectionModal 
-           visible={showUploadSelection} 
-           onClose={() => setShowUploadSelection(false)} 
-           isLight={isLight}
-           onSelect={(mode) => {
-             setUploadTargetCategory(mode);
-             setShowUploadSelection(false);
-             setShowUpload(true);
-           }}
-        />
-      )}
-
-      {showUpload && (
-        <UploadModal 
-          visible={showUpload} 
-          onClose={() => setShowUpload(false)} 
-          user={user} 
-          category={uploadTargetCategory} 
-          nickname={nickname}
-          isLight={isLight}
-        />
-      )}
-
-      {showDonation && (
-        <DonationModal
-          visible={showDonation}
-          onClose={() => setShowDonation(false)}
-          isLight={isLight}
-        />
-      )}
-
-      <Modal visible={showAuth} transparent animationType="slide" onRequestClose={() => setShowAuth(false)}>
-        <AuthScreen onClose={() => setShowAuth(false)} />
-      </Modal>
-    </SafeAreaView>
-  );
+    );
+  }
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -1635,6 +1474,8 @@ const styles = StyleSheet.create({
   // Layout
   container:    { flex: 1, backgroundColor: '#000' },
   appContainer: { flex: 1, flexDirection: 'row' },
+  toastContainer: { position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: 'rgba(0,0,0,0.8)', padding: 12, borderRadius: 10, alignItems: 'center' },
+  toastText: { color: '#fff', fontSize: 14 },
 
   // Sidebar
   sidebarWrapper: { backgroundColor: '#111' },
@@ -1642,24 +1483,15 @@ const styles = StyleSheet.create({
 
   // Auth
   authContainer: { flex: 1, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', padding: 30 },
-  authLogo:      { fontSize: 42, fontWeight: 'bold', color: '#fff', marginBottom: 8 },
   authSubtitle:  { fontSize: 18, color: '#aaa', marginBottom: 30 },
   input:         { width: '100%', maxWidth: 360, backgroundColor: '#1a1a1a', color: '#fff', padding: 14, borderRadius: 12, marginBottom: 12, fontSize: 16, borderWidth: 1, borderColor: '#333' },
   authBtn:       { width: '100%', maxWidth: 360, backgroundColor: '#3897f0', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 4 },
   authBtnText:   { color: '#fff', fontWeight: 'bold', fontSize: 17 },
   switchText:    { color: '#3897f0', fontSize: 14, marginTop: 4 },
-  divider:       { flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 360, marginVertical: 20 },
-  dividerLine:   { flex: 1, height: 1, backgroundColor: '#333' },
-  dividerText:   { color: '#555', marginHorizontal: 12, fontSize: 14 },
-  anonBtn:       { width: '100%', maxWidth: 360, backgroundColor: '#222', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
-  anonBtnText:   { color: '#aaa', fontWeight: '600', fontSize: 16 },
   googleBtn:     { width: '100%', maxWidth: 360, backgroundColor: '#fff', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#ddd' },
   googleBtnText: { color: '#222', fontWeight: '700', fontSize: 16 },
 
-  // Sidebar
-  sidebarWrapper: { backgroundColor: '#111' },
-  sidebar:        { width: 250, backgroundColor: '#111', padding: 20, borderRightWidth: 1, borderColor: '#222', minHeight: '100%' },
-  sidebarTitle:   { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
+  // Sidebar Items
   sidebarUser:    { fontSize: 13, color: '#bbb', marginLeft: 15 },
   nicknameDisplayBtn: { backgroundColor: '#1e1e1e', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, alignSelf: 'flex-start', marginLeft: 15, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
   nicknameDisplayText: { color: '#3897f0', fontSize: 13, fontWeight: 'bold' },
@@ -1676,9 +1508,6 @@ const styles = StyleSheet.create({
   uploadText:     { color: '#fff', fontWeight: 'bold', fontSize: 15, textAlign: 'center' },
   logoutBtn:      { backgroundColor: '#200000', padding: 12, borderRadius: 10, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: '#500' },
   logoutText:     { color: '#f44', fontSize: 14 },
-  guestBanner:    { backgroundColor: '#1a1a0a', borderWidth: 1, borderColor: '#443300', borderRadius: 10, padding: 12, alignItems: 'center' },
-  guestBannerText:{ color: '#aa8800', fontSize: 13, fontWeight: '700' },
-  guestBannerSub: { color: '#665500', fontSize: 11, marginTop: 4, textAlign: 'center' },
 
   // Feed ÔÇö Grid Instagram
   content:     { flex: 1, padding: 16, backgroundColor: '#000' },
@@ -1690,21 +1519,16 @@ const styles = StyleSheet.create({
   gridThumb:   { width: '100%', height: '100%' },
   gridLikesBadge: { position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12 },
   gridLikesText:  { color: '#fff', fontSize: 11, fontWeight: '700' },
-  vipBadgeSmall: { position: 'absolute', top: 6, left: 6, backgroundColor: 'rgba(255,215,0,0.9)', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 6 },
-  vipBadgeTextSmall: { fontSize: 10, color: '#000', fontWeight: 'bold' },
-  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginBottom: 16 },
-  statusBadgeText: { fontSize: 13, fontWeight: 'bold', color: '#000' },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginBottom: 16, backgroundColor: '#333' },
+  statusBadgeText: { fontSize: 13, fontWeight: 'bold', color: '#fff' },
 
-  // Detail modal (vista completa al pinchar)
+  // Detail modal
   detailOverlay:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
-  detailClose:     { position: 'absolute', top: 20, right: 20, padding: 10, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
-  detailCloseText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  detailImage:     { width: '90%', height: '65%' },
-  detailMeta:      { marginTop: 16, alignItems: 'center' },
-  detailTitle:     { color: '#fff', fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 4 },
-  detailAuthor:    { color: '#666', fontSize: 13, marginBottom: 12 },
-  detailLikeBtn:   { backgroundColor: '#1a1a1a', paddingHorizontal: 12, paddingVertical: 12, borderRadius: 24, borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center' },
-  detailLikeText:  { color: '#ff4d6d', fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  detailImage:     { width: '100%', height: '100%' },
+  detailMeta:      { padding: 20, width: '100%' },
+  detailTitle:     { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  detailLikeBtn:   { padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#333', marginTop: 10 },
+  detailLikeText:  { color: '#fff', textAlign: 'center' },
 
   // Upload Modal
   modalOverlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
