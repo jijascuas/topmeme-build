@@ -149,6 +149,17 @@ android {
     }
 }
 
+// RN 0.83.2 Workaround: Disable codegen tasks if newArchEnabled is off
+afterEvaluate {
+    if (!newArchEnabled.toBoolean()) {
+        tasks.configureEach { task ->
+            if (task.name.contains("generateCodegenSchema") || task.name.contains("generateCodegenArtifacts")) {
+                task.enabled = false
+            }
+        }
+    }
+}
+
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
 // android.packagingOptions.pickFirsts=/LICENSE,**/picasa.ini
