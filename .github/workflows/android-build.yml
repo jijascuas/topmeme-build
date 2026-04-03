@@ -40,10 +40,13 @@ jobs:
       - name: 🛠️ Install dependencies
         run: npm ci
 
-      - name: 🩹 Hide Codegen from autolinking (Fixes RN 0.83 CMake error)
+      - name: 🚀 Nuclear Codegen Bypass (Fixes RN 0.83 CMake error)
         run: |
-          # Rename codegenConfig to prevent the RN Gradle plugin from triggering CMake for Old Arch
-          find node_modules -name "package.json" -maxdepth 3 -exec sed -i 's/"codegenConfig"/"disabledCodegenConfig"/g' {} +
+          # COMPLETELY strip codegenConfig from all package.json in node_modules to force Old Arch build
+          find node_modules -name "package.json" -maxdepth 3 -exec sed -i '/"codegenConfig":/,/}/d' {} +
+          # Clean up JSON formatting (handle trailing commas or empty braces after deletion)
+          find node_modules -name "package.json" -maxdepth 3 -exec sed -i 's/,,/,/g; s/\[,/[/g; s/,\]/]/g; s/,}/}/g' {} +
+          echo "✅ Codegen configs stripped from node_modules"
 
       - name: 🩹 Patch react-native-iap for RN 0.83 compatibility
         run: |
