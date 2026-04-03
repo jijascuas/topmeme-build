@@ -33,42 +33,50 @@ const App = () => {
       try {
         await IAP.initConnection();
         if (Platform.OS === 'android') {
+          // Flush any pending/failed purchases from previous sessions
           await IAP.flushFailedPurchasesCachedAsPendingAndroid();
         }
+        // Fetch active products from Play Store
         await IAP.getProducts({ skus: ALL_SKUS });
       } catch (err) {
-        console.warn('IAP Init Error:', err);
+        console.warn('IAP Store Init Error:', err);
       }
     };
 
     initIAP();
 
+    // Listener for successful purchases
     purchaseUpdateSubscription = IAP.purchaseUpdatedListener(async (purchase) => {
       const receipt = purchase.transactionReceipt;
       if (receipt) {
         try {
-          // Retrieve docId from the purchase metadata (obfuscatedAccountId)
-          const docId = purchase.obfuscatedAccountIdAndroid || '';
-
+          // Send success signal back to the WebView
           webViewRef.current?.postMessage(JSON.stringify({
             type: 'PURCHASE_SUCCESS',
             productId: purchase.productId,
             transactionReceipt: receipt,
-            docId: docId
+            docId: purchase.obfuscatedAccountIdAndroid || ''
           }));
 
+          // Finalize consumption so the user can buy it again (for promotions/donations)
           await IAP.finishTransaction({ purchase, isConsumable: true });
         } catch (err) {
-          console.warn('Finish Transaction Error:', err);
+          console.error('IAP Finish Error:', err);
         }
       }
     });
 
+    // Listener for errors or cancellations
     purchaseErrorSubscription = IAP.purchaseErrorListener((error) => {
-      console.warn('Purchase Error:', error);
+      // Don't alert on "User canceled", let the WebView handle it silently or with a toast
+      if (error?.code !== 'E_USER_CANCELLED') {
+        console.warn('IAP Error Listener:', error);
+      }
+      
       webViewRef.current?.postMessage(JSON.stringify({
         type: 'PURCHASE_ERROR',
-        message: error.message
+        message: error.message,
+        code: error.code
       }));
     });
 
@@ -82,15 +90,17 @@ const App = () => {
   const handlePurchase = async (sku, docId = '') => {
     try {
       if (Platform.OS === 'android') {
-        // Use obfuscatedAccountIdAndroid to pass the docId across the Play Store transaction
+        // Trigger the Google Play Billing flow
         await IAP.requestPurchase({
           skus: [sku],
           andDangerouslyFinishTransactionAutomaticallyIOS: false,
-          obfuscatedAccountIdAndroid: docId
+          obfuscatedAccountIdAndroid: docId // Store docId to link promotion to specific meme
         });
       }
     } catch (err) {
-      Alert.alert('Purchase Error', err.message);
+      if (err?.code !== 'E_USER_CANCELLED') {
+        Alert.alert('Store Unavailable', 'Could not open the payment window. Check your connection.');
+      }
     }
   };
 

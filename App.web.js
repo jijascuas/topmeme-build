@@ -1374,7 +1374,11 @@ export default function App() {
              showToast('❤️ Thank you so much for your donation!');
            }
         } else if (data.type === 'PURCHASE_ERROR') {
-          showToast(`❌ Purchase failed: ${data.message}`);
+          if (data.code === 'E_USER_CANCELLED' || data.message?.includes('canceled')) {
+            showToast('💰 Payment canceled.');
+          } else {
+            showToast(`❌ Purchase error: ${data.message}`);
+          }
         }
       } catch (e) {}
     };
