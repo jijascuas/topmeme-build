@@ -234,8 +234,14 @@ const AuthScreen = ({ onClose }) => {
     try {
       if (isRegister) await createUserWithEmailAndPassword(auth, email, password);
       else            await signInWithEmailAndPassword(auth, email, password);
-    } catch (e) { safeAlert('Error', e.message); }
-    setLoading(false);
+      
+      // Close modal on success
+      if (onClose) onClose();
+    } catch (e) { 
+      safeAlert('Error', e.message); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -619,7 +625,7 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
       });
 
       if (requiresStripePayment) {
-        if (typeof window !== 'undefined' && window.ReactNativeWebView && window.IS_TOPMEME_APK) {
+        if (typeof window !== 'undefined' && window.ReactNativeWebView && (window.IS_TOPMEME_APK || navigator.userAgent?.includes("TopmemeAndroidWebView"))) {
            // APK Native Billing Trigger
            window.ReactNativeWebView.postMessage(JSON.stringify({
               type: 'PURCHASE',
@@ -858,7 +864,7 @@ const DonationModal = ({ visible, onClose, isLight }) => {
   ];
 
   const handleDonate = (sku) => {
-    if (typeof window !== 'undefined' && window.ReactNativeWebView && window.IS_TOPMEME_APK) {
+    if (typeof window !== 'undefined' && window.ReactNativeWebView && (window.IS_TOPMEME_APK || navigator.userAgent?.includes("TopmemeAndroidWebView"))) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'PURCHASE',
         productId: sku
@@ -897,12 +903,14 @@ const DonationModal = ({ visible, onClose, isLight }) => {
             </TouchableOpacity>
           ))}
 
-          <TouchableOpacity 
-            style={{ marginTop: 10, alignSelf: 'center' }}
-            onPress={() => Linking.openURL('https://ko-fi.com/jijascuas')}
-          >
-            <Text style={{ color: '#4caf50', fontSize: 12, textDecorationLine: 'underline' }}>Other ways to support (Ko-fi)</Text>
-          </TouchableOpacity>
+          {!(typeof window !== 'undefined' && (window.IS_TOPMEME_APK || navigator.userAgent?.includes("TopmemeAndroidWebView"))) && (
+            <TouchableOpacity 
+              style={{ marginTop: 10, alignSelf: 'center' }}
+              onPress={() => Linking.openURL('https://ko-fi.com/jijascuas')}
+            >
+              <Text style={{ color: '#4caf50', fontSize: 12, textDecorationLine: 'underline' }}>Other ways to support (Ko-fi)</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>
@@ -1432,6 +1440,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (user && !user.isAnonymous && showAuth) {
+      setShowAuth(false);
+    }
+  }, [user, showAuth]);
+
+  useEffect(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         localStorage.setItem('topmeme_nickname', nickname);
@@ -1609,9 +1623,9 @@ export default function App() {
         />
       )}
 
-      {showAuth && (
+      <Modal visible={showAuth} transparent animationType="slide" onRequestClose={() => setShowAuth(false)}>
         <AuthScreen onClose={() => setShowAuth(false)} />
-      )}
+      </Modal>
     </SafeAreaView>
   );
 }
