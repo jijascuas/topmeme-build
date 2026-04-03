@@ -52,8 +52,18 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > topmeme.keystore
-          cp topmeme.keystore android/app/topmeme.keystore
+          # Remove any accidental whitespace/newlines from the secret, then decode
+          printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n' | base64 --decode > android/app/topmeme.keystore
+          
+          # Validate: a real keystore is always > 1 KB
+          FILE_SIZE=$(stat -c%s "android/app/topmeme.keystore")
+          echo "✅ Keystore decoded — size: ${FILE_SIZE} bytes"
+          if [ "$FILE_SIZE" -lt 1000 ]; then
+            echo "❌ ERROR: Keystore file is too small (${FILE_SIZE} bytes). KEYSTORE_BASE64 secret is likely truncated or empty."
+            echo "   → Go to Settings > Secrets > KEYSTORE_BASE64 and paste the full base64 value."
+            exit 1
+          fi
+          file android/app/topmeme.keystore
 
       - name: 🔐 Give Execute Permissions to Gradlew
         run: chmod +x android/gradlew
