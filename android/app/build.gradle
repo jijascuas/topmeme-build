@@ -4,6 +4,10 @@ apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
+// Expo autolinking
+apply from: new File(["node", "--print", "require.resolve('expo/package.json')"].execute(null, rootDir).text.trim(), "../scripts/autolinking.gradle")
+useExpoModules()
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -62,7 +66,7 @@ react {
     /* Autolinking */
     hermesEnabled = hermesEnabled.toBoolean()
     newArchEnabled = newArchEnabled.toBoolean()
-    // autolinkLibrariesWithApp() // RN 0.83.2: Disable JNI autolinking for Old Arch to avoid CMake errors
+    autolinkLibrariesWithApp() // RN 0.83.2: Keep enabled for Old Arch too
 }
 
 /**
@@ -149,15 +153,19 @@ android {
     }
 }
 
-// RN 0.83.2 Workaround: Disable ALL New Architecture / Codegen / CMake tasks if newArchEnabled is off
+// RN 0.83.2 Workaround: Disable ONLY New Architecture / Codegen / CMake tasks if newArchEnabled is off
 afterEvaluate {
     if (!newArchEnabled.toBoolean()) {
         tasks.configureEach { task ->
-            if (task.name.contains("generateCodegen") || 
-                task.name.contains("generateAutolinking") || 
+            // DO NOT match "generateAutolinkingPackageList" (needed for Old Arch)
+            // Use specific task name or more precise matches
+            if (task.name == "generateAutolinkingNewArchitectureFiles" || 
+                task.name.contains("generateCodegen") || 
                 task.name.contains("configureCMake") || 
-                task.name.contains("buildCMake")) {
-                println "🚀 Disabling New Arch Task: ${task.name}"
+                task.name.contains("buildCMake") || 
+                task.name.contains("externalNativeBuild") ||
+                task.name.contains("copyNewArchitectureJniLibs")) {
+                println "🚀 [Topmeme] Skipping New Arch Task: ${task.name}"
                 task.enabled = false
             }
         }
