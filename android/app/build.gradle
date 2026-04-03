@@ -60,6 +60,8 @@ react {
     // hermesFlags = ["-O", "-output-source-map"]
 
     /* Autolinking */
+    hermesEnabled = hermesEnabled.toBoolean()
+    newArchEnabled = newArchEnabled.toBoolean()
     autolinkLibrariesWithApp()
 }
 
@@ -89,7 +91,7 @@ android {
 
     namespace 'com.jijascuas.topmeme'
     defaultConfig {
-missingDimensionStrategy "store", "play"
+
         applicationId 'com.jijascuas.topmeme'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
