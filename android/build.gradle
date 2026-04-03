@@ -36,4 +36,22 @@ allprojects {
     }
 }
 
+// Force C++20 for all native builds — required by React Native 0.83+ headers (std::format)
+subprojects {
+    afterEvaluate {
+        if (it.hasProperty('android')) {
+            try {
+                android.defaultConfig.externalNativeBuild {
+                    cmake {
+                        cppFlags "-std=c++20"
+                        arguments "-DCMAKE_CXX_STANDARD=20", "-DCMAKE_CXX_STANDARD_REQUIRED=ON"
+                    }
+                }
+            } catch (Exception ignored) {
+                // Sub-project does not use CMake — skip
+            }
+        }
+    }
+}
+
 apply plugin: "expo-root-project"
