@@ -2,12 +2,12 @@
 
 buildscript {
     ext {
-        buildToolsVersion = "35.0.0"
+        buildToolsVersion = "36.0.0"
         minSdkVersion = 24
-        compileSdkVersion = 35
-        targetSdkVersion = 35
-        ndkVersion = "27.2.12479018"
-        kotlinVersion = "2.1.0"
+        compileSdkVersion = 36
+        targetSdkVersion = 36
+        ndkVersion = "27.1.12297006"
+        kotlinVersion = "2.1.20"
     }
     repositories {
         google()
@@ -16,14 +16,14 @@ buildscript {
     // Force Kotlin 2.1.0 — overrides any 1.9.x bundled by react-native-gradle-plugin
     configurations.all {
         resolutionStrategy {
-            force "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0"
-            force "org.jetbrains.kotlin:kotlin-stdlib:2.1.0"
-            force "org.jetbrains.kotlin:kotlin-stdlib-common:2.1.0"
+            force "org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.20"
+            force "org.jetbrains.kotlin:kotlin-stdlib:2.1.20"
+            force "org.jetbrains.kotlin:kotlin-stdlib-common:2.1.20"
         }
     }
     dependencies {
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
-        classpath("com.android.tools.build:gradle:8.5.2")
+        classpath("com.android.tools.build:gradle:8.12.0")
         classpath("com.facebook.react:react-native-gradle-plugin")
     }
 }
@@ -36,7 +36,7 @@ allprojects {
     }
 }
 
-// NDK 27.2+ required — React Native 0.83 uses std::format (C++20) in public headers,
-// which requires libc++ from LLVM 18+ (NDK 26.x had incomplete C++20 stdlib support)
+// RN 0.83.2 requires compileSdk 36, AGP 8.12.0, Kotlin 2.1.20, NDK 27.1
+// NDK 27.1 ships with LLVM 18 which has full C++20 std::format support
 
 apply plugin: "expo-root-project"
