@@ -6,7 +6,7 @@ buildscript {
         minSdkVersion = 24
         compileSdkVersion = 35
         targetSdkVersion = 35
-        ndkVersion = "26.1.10909125"
+        ndkVersion = "27.2.12479018"
         kotlinVersion = "2.1.0"
     }
     repositories {
@@ -36,22 +36,7 @@ allprojects {
     }
 }
 
-// Force C++20 for all native builds — required by React Native 0.83+ headers (std::format)
-subprojects {
-    afterEvaluate {
-        if (it.hasProperty('android')) {
-            try {
-                android.defaultConfig.externalNativeBuild {
-                    cmake {
-                        cppFlags "-std=c++20"
-                        arguments "-DCMAKE_CXX_STANDARD=20", "-DCMAKE_CXX_STANDARD_REQUIRED=ON"
-                    }
-                }
-            } catch (Exception ignored) {
-                // Sub-project does not use CMake — skip
-            }
-        }
-    }
-}
+// NDK 27.2+ required — React Native 0.83 uses std::format (C++20) in public headers,
+// which requires libc++ from LLVM 18+ (NDK 26.x had incomplete C++20 stdlib support)
 
 apply plugin: "expo-root-project"

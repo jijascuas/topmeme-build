@@ -29,6 +29,10 @@ jobs:
           distribution: 'zulu'
           cache: 'gradle'
 
+      - name: 🔧 Install NDK 27.2 (required for std::format / C++20)
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.2.12479018"
+
       - name: 🛠️ Install dependencies
         run: npm ci
 
