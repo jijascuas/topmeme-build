@@ -95,6 +95,9 @@ android {
         versionCode 7
         versionName "1.2.0"
 
+        // react-native-iap has 'amazon' and 'play' flavors — we use Google Play
+        missingDimensionStrategy 'store', 'play'
+
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     signingConfigs {
