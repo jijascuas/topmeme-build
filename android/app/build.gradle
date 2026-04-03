@@ -62,7 +62,7 @@ react {
     /* Autolinking */
     hermesEnabled = hermesEnabled.toBoolean()
     newArchEnabled = newArchEnabled.toBoolean()
-    autolinkLibrariesWithApp()
+    // autolinkLibrariesWithApp() // RN 0.83.2: Disable JNI autolinking for Old Arch to avoid CMake errors
 }
 
 /**
