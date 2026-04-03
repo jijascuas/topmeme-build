@@ -40,6 +40,11 @@ jobs:
       - name: 🛠️ Install dependencies
         run: npm ci
 
+      - name: 🩹 Hide Codegen from autolinking (Fixes RN 0.83 CMake error)
+        run: |
+          # Rename codegenConfig to prevent the RN Gradle plugin from triggering CMake for Old Arch
+          find node_modules -name "package.json" -maxdepth 3 -exec sed -i 's/"codegenConfig"/"disabledCodegenConfig"/g' {} +
+
       - name: 🩹 Patch react-native-iap for RN 0.83 compatibility
         run: |
           IAP_FILE="node_modules/react-native-iap/android/src/play/java/com/dooboolab/rniap/RNIapModule.kt"
