@@ -40,15 +40,22 @@ jobs:
       - name: 🛠️ Install dependencies
         run: npm ci
 
-      - name: 🚀 Broad Codegen Bypass (Fixes RN 0.83 CI errors)
+      - name: 🚀 Enhanced Codegen Bypass & Fallback (Fixes RN 0.83 CI)
         run: |
-          # Hide "codegenConfig" from all libraries EXCEPT react-native and expo.
-          # This prevents the autolinker from looking for JNI directories that don't exist in CI.
-          find node_modules -name "package.json" \
-            -not -path "*/react-native/*" \
-            -not -path "*/expo/*" \
-            -exec grep -l "codegenConfig" {} + | xargs -r sed -i 's/"codegenConfig"/"disabledCodegen"/g' || true
-          echo "✅ Codegen configs hidden for external libraries"
+          # 1. Broadly hide codegenConfig in node_modules to avoid auto-linking detection
+          find node_modules -name "package.json" -not -path "*/react-native/*" -not -path "*/expo/*" -exec grep -l "codegenConfig" {} + | xargs -r sed -i 's/"codegenConfig"/"disabledCodegen"/g' || true
+          
+          # 2. Specifically target known offenders (Nitro is a common cause in RN 0.83)
+          if [ -d "node_modules/react-native-nitro-modules" ]; then
+            find node_modules/react-native-nitro-modules -name "package.json" -exec sed -i 's/"codegenConfig"/"disabledCodegen"/g' {} + || true
+            mkdir -p node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/
+            touch node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/CMakeLists.txt
+            echo "✅ Nitro modules patched and dummy JNI prepared"
+          fi
+
+          # 3. Verify if anything still has it (debugging)
+          echo "Checking if any problematic library still has codegenConfig:"
+          grep -r "codegenConfig" node_modules/react-native-nitro-modules/package.json || echo "Nitro is clear"
 
       - name: 🩹 Resilient CMake (Fixes RN 0.83 missing targets)
         run: |
