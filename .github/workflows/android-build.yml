@@ -40,13 +40,15 @@ jobs:
       - name: 🛠️ Install dependencies
         run: npm ci
 
-      - name: 🚀 Selective Codegen Bypass (Fixes RN 0.83 CMake error)
+      - name: 🚀 Broad Codegen Bypass (Fixes RN 0.83 CI errors)
         run: |
-          # Only rename codegenConfig in specific problematic libraries (IAP and WebView)
-          # Exclude expo and react-native to prevent build breakages
-          find node_modules/react-native-iap -name "package.json" -exec sed -i 's/"codegenConfig"/"disabledCodegen"/g' {} + || true
-          find node_modules/react-native-webview -name "package.json" -exec sed -i 's/"codegenConfig"/"disabledCodegen"/g' {} + || true
-          echo "✅ Problematic codegen configs hidden"
+          # Hide "codegenConfig" from all libraries EXCEPT react-native and expo.
+          # This prevents the autolinker from looking for JNI directories that don't exist in CI.
+          find node_modules -name "package.json" \
+            -not -path "*/react-native/*" \
+            -not -path "*/expo/*" \
+            -exec grep -l "codegenConfig" {} + | xargs -r sed -i 's/"codegenConfig"/"disabledCodegen"/g' || true
+          echo "✅ Codegen configs hidden for external libraries"
 
       - name: 🩹 Resilient CMake (Fixes RN 0.83 missing targets)
         run: |
