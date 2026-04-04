@@ -157,17 +157,18 @@ android {
     }
 }
 
-// RN 0.83.2 Workaround: Disable ONLY New Architecture / Codegen / CMake tasks if newArchEnabled is off
+// RN 0.83.2 Workaround: Disable ALL native C++ tasks if newArchEnabled is off
 afterEvaluate {
     if (!newArchEnabled.toBoolean()) {
         tasks.configureEach { task ->
-            // Skip problematic tasks that find missing C++ codegen directories in RN 0.83+
+            // Skip ALL problematic C++ tasks. Some are triggered even on Old Arch in RN 0.83+
             if (task.name.contains("configureCMake") || 
+                task.name.contains("buildCMake") || 
                 task.name.contains("externalNativeBuild") || 
                 task.name.contains("generateCodegenArtifacts") ||
                 task.name.contains("generateCodegenSchema")) {
                 task.enabled = false
-                println "Skipping NewArch task: ${task.name}"
+                println "Bypassing native task: ${task.name}"
             }
         }
     }

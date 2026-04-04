@@ -589,28 +589,28 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
         return;
       }
 
-      // 2. Lógica de Pago o Código Regalo
+      // 2. Gift Code Check
       let requiresStripePayment = (category === 'PROMOTION' || category === 'PROMOCION');
 
       if (requiresStripePayment && isGift) {
         setPaymentProcessing(true);
         const trimmedCode = giftCode.trim();
-        if (!trimmedCode) throw new Error('Introduce un código de regalo.');
+        if (!trimmedCode) throw new Error('Enter a gift code.');
         
         const codeRef = doc(db, 'gift_codes', trimmedCode);
         const codeSnap = await getDoc(codeRef);
         
         if (!codeSnap.exists() || codeSnap.data().used) {
-          throw new Error('Código inválido o ya usado.');
+          throw new Error('Invalid or already used code.');
         }
         
         await updateDoc(codeRef, { used: true, usedBy: user.uid, usedAt: new Date() });
         requiresStripePayment = false;
         setPaymentProcessing(false);
-      } else if (requiresStripePayment) {
-        setPaymentProcessing(true);
-        // We will open the Stripe link AFTER saving the doc to get the doc ID
       }
+      
+      // We do NOT set paymentProcessing=true here for Stripe yet, 
+      // because we first need to upload the image to Cloudinary.
 
       // 3. Subida a Cloudinary
       const { url, bytes, publicId } = await uploadToCloudinary(
@@ -643,7 +643,6 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
         imageUrl: url,
         publicId, bytes,
         uploadedBy: user.uid, 
-        // uploaderEmail: user.email || 'guest', // Email hidden by user request
         author: (propNickname || 'Anonymous').trim(),
         likes: 0, 
         likedBy: [],
@@ -651,7 +650,10 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
         approved: !requiresStripePayment
       });
 
+      // 5. Trigger Payment (only now we set paymentProcessing to true)
       if (requiresStripePayment) {
+        setPaymentProcessing(true);
+        await new Promise(r => setTimeout(r, 500)); // Brief pause for UX visibility
         if (typeof window !== 'undefined' && window.ReactNativeWebView && (window.IS_TOPMEME_APK || navigator.userAgent?.includes("TopmemeAndroidWebView"))) {
            // APK Native Billing Trigger
            window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -796,13 +798,13 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
                 <View style={[
                   styles.progressBar, 
                   { 
-                    width: (aiAnalyzing || paymentProcessing) ? '100%' : `${uploadProgress}%`, 
-                    backgroundColor: paymentProcessing ? '#cca000' : (aiAnalyzing ? '#8a2be2' : '#3897f0') 
+                    width: (aiAnalyzing || paymentProcessing) ? '100%' : `${Math.max(5, uploadProgress)}%`, 
+                    backgroundColor: paymentProcessing ? '#ffd700' : (aiAnalyzing ? '#8a2be2' : '#3897f0') 
                   }
                 ]} />
                 <Text style={styles.progressText}>
-                  {aiAnalyzing ? '🤖 IA Analizando...' 
-                   : (paymentProcessing ? '💳 Procesando pago...' : `${Math.round(uploadProgress)}% subiendo...`)}
+                  {aiAnalyzing ? '🤖 IA Analyzing...' 
+                   : (paymentProcessing ? '💳 Triggering Payment...' : `${Math.round(uploadProgress)}% uploading...`)}
                 </Text>
               </View>
             )}
