@@ -158,7 +158,20 @@ android {
 }
 
 // RN 0.83.2 Workaround: Disable ONLY New Architecture / Codegen / CMake tasks if newArchEnabled is off
-// Removed task bypass to ensure hybrid modules (react-native-iap) are compiled.
+afterEvaluate {
+    if (!newArchEnabled.toBoolean()) {
+        tasks.configureEach { task ->
+            // Skip problematic tasks that find missing C++ codegen directories in RN 0.83+
+            if (task.name.contains("configureCMake") || 
+                task.name.contains("externalNativeBuild") || 
+                task.name.contains("generateCodegenArtifacts") ||
+                task.name.contains("generateCodegenSchema")) {
+                task.enabled = false
+                println "Skipping NewArch task: ${task.name}"
+            }
+        }
+    }
+}
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
