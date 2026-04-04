@@ -151,13 +151,10 @@ android {
     }
 }
 
-/*
 // RN 0.83.2 Workaround: Disable ONLY New Architecture / Codegen / CMake tasks if newArchEnabled is off
 afterEvaluate {
     if (!newArchEnabled.toBoolean()) {
         tasks.configureEach { task ->
-            // DO NOT match "generateAutolinkingPackageList" (needed for Old Arch)
-            // Use specific task name or more precise matches
             if (task.name == "generateAutolinkingNewArchitectureFiles" || 
                 task.name.contains("generateCodegen") || 
                 task.name.contains("configureCMake") || 
@@ -170,7 +167,6 @@ afterEvaluate {
         }
     }
 }
-*/
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
