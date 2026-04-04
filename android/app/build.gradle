@@ -152,21 +152,7 @@ android {
 }
 
 // RN 0.83.2 Workaround: Disable ONLY New Architecture / Codegen / CMake tasks if newArchEnabled is off
-afterEvaluate {
-    if (!newArchEnabled.toBoolean()) {
-        tasks.configureEach { task ->
-            if (task.name == "generateAutolinkingNewArchitectureFiles" || 
-                task.name.contains("generateCodegen") || 
-                task.name.contains("configureCMake") || 
-                task.name.contains("buildCMake") || 
-                task.name.contains("externalNativeBuild") ||
-                task.name.contains("copyNewArchitectureJniLibs")) {
-                println "🚀 [Topmeme] Skipping New Arch Task: ${task.name}"
-                task.enabled = false
-            }
-        }
-    }
-}
+// Removed task bypass to ensure hybrid modules (react-native-iap) are compiled.
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:

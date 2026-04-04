@@ -40,36 +40,6 @@ jobs:
       - name: 🛠️ Install dependencies
         run: npm ci
 
-      - name: 🚀 Enhanced Codegen Bypass & Fallback (Fixes RN 0.83 CI)
-        run: |
-          # 1. Broadly hide codegenConfig in node_modules to avoid auto-linking detection
-          find node_modules -name "package.json" -not -path "*/react-native/*" -not -path "*/expo/*" -exec grep -l "codegenConfig" {} + | xargs -r sed -i 's/"codegenConfig"/"disabledCodegen"/g' || true
-          
-          # 2. Specifically target known offenders (Nitro is a common cause in RN 0.83)
-          if [ -d "node_modules/react-native-nitro-modules" ]; then
-            find node_modules/react-native-nitro-modules -name "package.json" -exec sed -i 's/"codegenConfig"/"disabledCodegen"/g' {} + || true
-            mkdir -p node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/
-            touch node_modules/react-native-nitro-modules/android/build/generated/source/codegen/jni/CMakeLists.txt
-            echo "✅ Nitro modules patched and dummy JNI prepared"
-          fi
-
-          # 3. Verify if anything still has it (debugging)
-          echo "Checking if any problematic library still has codegenConfig:"
-          grep -r "codegenConfig" node_modules/react-native-nitro-modules/package.json || echo "Nitro is clear"
-
-      - name: 🩹 Resilient CMake (Fixes RN 0.83 missing targets)
-        run: |
-          # Edit the RN CMake template to check if a target exists before linking it.
-          # This prevents crashes when the autolinker asks for targets that were never built.
-          CMAKE_FILE="node_modules/react-native/ReactAndroid/cmake-utils/ReactNative-application.cmake"
-          if [ -f "$CMAKE_FILE" ]; then
-            # Replace the link line with a conditional block
-            sed -i 's/target_link_libraries(${autolinked_library} common_flags)/if(TARGET ${autolinked_library})\n                target_link_libraries(${autolinked_library} common_flags)\n            endif()/g' "$CMAKE_FILE"
-            echo "✅ CMake template patched to be resilient"
-          else
-            echo "⚠️ CMake template not found, skipping patch"
-          fi
-
       - name: 🩹 Patch react-native-iap for RN 0.83 compatibility
         run: |
           IAP_FILE="node_modules/react-native-iap/android/src/play/java/com/dooboolab/rniap/RNIapModule.kt"
