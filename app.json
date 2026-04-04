@@ -18,17 +18,14 @@
       "package": "com.jijascuas.topmeme",
       "versionCode": 7,
       "permissions": [
-        "com.google.android.gms.permission.AD_ID",
-        "com.android.vending.BILLING"
+        "com.google.android.gms.permission.AD_ID"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#FFFFFF"
       }
     },
-    "plugins": [
-      "react-native-iap"
-    ],
+    "plugins": [],
     "splash": {
       "image": "./assets/icon.png",
       "resizeMode": "contain",
