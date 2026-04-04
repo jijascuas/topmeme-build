@@ -121,21 +121,27 @@ android {
             }
         }
     }
+    splits {
+        abi {
+            reset()
+            enable true
+            universalApk false  // Generate separate APKs per architecture to reduce size
+            include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
+    }
+
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Use the release signing config if defined, else fallback to debug (vulnerable for production)
-            if (project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
-                signingConfig signingConfigs.release
-            } else {
-                signingConfig signingConfigs.debug
-            }
-            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
-            shrinkResources enableShrinkResources.toBoolean()
-            minifyEnabled enableMinifyInReleaseBuilds
+            signingConfig signingConfigs.release
+            
+            // Optimization settings to reduce APK size
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
         }
