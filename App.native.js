@@ -92,7 +92,7 @@ const App = () => {
       if (Platform.OS === 'android') {
         // Trigger the Google Play Billing flow
         await IAP.requestPurchase({
-          skus: [sku],
+          sku: sku,
           andDangerouslyFinishTransactionAutomaticallyIOS: false,
           obfuscatedAccountIdAndroid: docId // Store docId to link promotion to specific meme
         });

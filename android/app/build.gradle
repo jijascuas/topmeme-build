@@ -4,9 +4,7 @@ apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
-// Expo autolinking
-apply from: new File(["node", "--print", "require.resolve('expo/package.json')"].execute(null, rootDir).text.trim(), "../scripts/autolinking.gradle")
-useExpoModules()
+
 
 /**
  * This is the configuration block to customize your React Native Android app.
@@ -153,6 +151,7 @@ android {
     }
 }
 
+/*
 // RN 0.83.2 Workaround: Disable ONLY New Architecture / Codegen / CMake tasks if newArchEnabled is off
 afterEvaluate {
     if (!newArchEnabled.toBoolean()) {
@@ -171,6 +170,7 @@ afterEvaluate {
         }
     }
 }
+*/
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
