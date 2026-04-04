@@ -1,0 +1,37 @@
+name: 🔥 Deploy Firebase (Hosting & Functions)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📦 Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 🛠️ Install dependencies (Root)
+        run: npm ci
+
+      - name: 🛠️ Install dependencies (Functions)
+        working-directory: functions
+        run: npm ci
+
+      - name: 🏗️ Build Web App
+        run: npm run build
+
+      - name: 🚀 Deploy to Firebase
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_TOPMEME_JIJASCUAS }}'
+          channelId: live
+          projectId: topmeme-jijascuas

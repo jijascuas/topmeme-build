@@ -87,12 +87,22 @@ async function main() {
   const keystoreB64 = keystoreBytes.toString('base64');
   console.log(`   Keystore leído: ${keystoreBytes.length} bytes`);
 
-  // 3. Subir los 4 secrets
+  // 3. Subir los 5 secrets
   console.log('\n3️⃣  Subiendo secrets...');
   await setSecret(pkData.key_id, pkData.key, 'KEYSTORE_BASE64', keystoreB64);
   await setSecret(pkData.key_id, pkData.key, 'KEYSTORE_PASSWORD', KEYSTORE_PASSWORD);
   await setSecret(pkData.key_id, pkData.key, 'KEY_ALIAS', KEY_ALIAS);
   await setSecret(pkData.key_id, pkData.key, 'KEY_PASSWORD', KEY_PASSWORD);
+
+  // Leer y subir el serviceAccountKey.json para Firebase
+  const saPath = path.join(__dirname, 'serviceAccountKey.json');
+  try {
+    const saValue = readFileSync(saPath, 'utf-8');
+    await setSecret(pkData.key_id, pkData.key, 'FIREBASE_SERVICE_ACCOUNT_TOPMEME_JIJASCUAS', saValue);
+    console.log('   Service Account Uploaded');
+  } catch (err) {
+    console.warn('   ⚠️ No se encontró serviceAccountKey.json, saltando...');
+  }
 
   // 4. Disparar el workflow
   console.log('\n4️⃣  Disparando el build de Android...');

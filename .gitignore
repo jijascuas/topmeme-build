@@ -77,3 +77,14 @@ ios/
 # Sensitive files
 serviceAccountKey.json*
 codigos_regalo.txt
+*.keystore
+topmeme.keystore
+keystore_b64.txt
+.env
+.env.*
+
+# Android / iOS build artifacts
+android/build/
+android/app/build/
+*.apk
+*.aab
