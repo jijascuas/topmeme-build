@@ -654,25 +654,26 @@ const UploadModal = ({ visible, onClose, user, category, nickname: propNickname,
       if (requiresStripePayment) {
         setPaymentProcessing(true);
         await new Promise(r => setTimeout(r, 500)); // Brief pause for UX visibility
-        if (typeof window !== 'undefined' && window.ReactNativeWebView && (window.IS_TOPMEME_APK || navigator.userAgent?.includes("TopmemeAndroidWebView"))) {
-           // APK Native Billing Trigger
-           window.ReactNativeWebView.postMessage(JSON.stringify({
-              type: 'PURCHASE',
-              productId: 'promotion_10usd',
-              docId: docRef.id
-           }));
-           setPaymentProcessing(false);
-           safeAlert('Promotion', 'Meme uploaded. Complete the payment in the pop-up to activate it.');
+        
+        // Standard Stripe redirection (always use this to avoid Play Console Google Play Billing issues)
+        const stripeUrl = `https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`;
+        
+        if (typeof window !== 'undefined' && window.ReactNativeWebView) {
+          // Send message to native side to open browser outside the app
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'OPEN_LINK',
+            url: stripeUrl
+          }));
+          setPaymentProcessing(false);
+          safeAlert('Promotion', 'Meme uploaded! Please complete the payment in your browser to activate it in the ranking.');
         } else {
-          // Standard Stripe fallback for Web
-          const stripeUrl = `https://buy.stripe.com/14A8wI2kn9NJ43n25e1ZS00?client_reference_id=${docRef.id}`;
+          // Standard Browser
           if (Platform.OS === 'web') {
             window.location.href = stripeUrl;
-            return;
           } else {
             Linking.openURL(stripeUrl);
             setPaymentProcessing(false);
-            safeAlert('Promotion', 'Meme uploaded. Waiting for payment to activate it in the ranking.');
+            safeAlert('Promotion', 'Meme uploaded! Complete the payment in your browser.');
           }
         }
       } else {
@@ -889,28 +890,22 @@ const DonationModal = ({ visible, onClose, isLight }) => {
   const isAndroidWebView = typeof window !== 'undefined' &&
     (window.IS_TOPMEME_APK || navigator.userAgent?.includes('TopmemeAndroidWebView'));
 
-  // On web: go directly to Ko-fi without showing the amount picker
+  // ALWAYS go directly to Ko-fi without showing the amount picker or native IAP
   useEffect(() => {
-    if (visible && !isAndroidWebView) {
-      Linking.openURL('https://ko-fi.com/jijascuas');
+    if (visible) {
+      if (isAndroidWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'OPEN_LINK',
+          url: 'https://ko-fi.com/jijascuas'
+        }));
+      } else {
+        Linking.openURL('https://ko-fi.com/jijascuas');
+      }
       onClose();
     }
   }, [visible]);
 
-  // Android native billing options
-  const donationOptions = [
-    { id: 'donate_1', label: '$1 - Coffee', value: 1, icon: '☕' },
-    { id: 'donate_5', label: '$5 - Pizza', value: 5, icon: '🍕' },
-    { id: 'donate_10', label: '$10 - Full Support', value: 10, icon: '🚀' },
-  ];
-
-  const handleDonate = (sku) => {
-    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'PURCHASE', productId: sku }));
-    onClose();
-  };
-
-  // On web this modal never renders (opened Ko-fi directly above)
-  if (!isAndroidWebView) return null;
+  return null;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
