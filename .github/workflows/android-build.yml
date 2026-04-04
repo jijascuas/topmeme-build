@@ -40,19 +40,6 @@ jobs:
       - name: 🛠️ Install dependencies
         run: npm ci
 
-      - name: 🩹 Patch react-native-iap for RN 0.83 compatibility
-        run: |
-          IAP_FILE="node_modules/react-native-iap/android/src/play/java/com/dooboolab/rniap/RNIapModule.kt"
-          if [ -f "$IAP_FILE" ]; then
-            # In RN 0.83, ReactContextBaseJavaModule removed currentActivity — use reactContext.getCurrentActivity()
-            sed -i 's/val activity = currentActivity/val activity = reactContext.getCurrentActivity()/' "$IAP_FILE"
-            # Explicit !! non-null (null was already handled before the lambda scope)
-            sed -i 's/billingClient.launchBillingFlow(activity, flowParams)/billingClient.launchBillingFlow(activity!!, flowParams)/' "$IAP_FILE"
-            echo "✅ Patch applied successfully"
-          else
-            echo "⚠️ IAP file not found, skipping patch"
-          fi
-
       - name: 🔐 Decode & Place Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
